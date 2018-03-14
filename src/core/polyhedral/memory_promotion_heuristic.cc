@@ -460,7 +460,6 @@ void promoteToSharedGreedy(
   size_t remainingMemory = maxMemory;
   for (auto bandNode : bands) {
     auto groupMap = TensorReferenceGroup::accessedBySubtree(bandNode, scop);
-    auto activeStmts = activeStatements(root, bandNode);
     auto partialSched = partialSchedule(root, bandNode);
     auto activePoints = activeDomainPoints(root, bandNode);
 
@@ -535,7 +534,6 @@ void promoteToSharedGreedy(
             tensorId,
             std::move(group),
             bandNode,
-            activeStmts,
             partialSched,
             true);
         remainingMemory -= memoryRequirement;
