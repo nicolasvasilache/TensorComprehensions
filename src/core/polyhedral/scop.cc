@@ -198,6 +198,15 @@ Scop::activePromotions(isl::union_set activePoints, isl::id tensorId) {
   return result;
 }
 
+namespace {
+template <typename T>
+T projectOutNamedParam(T t, isl::id paramId) {
+  auto space = t.get_space();
+  int pos = space.find_dim_by_id(isl::dim_type::param, paramId);
+  return (pos == -1) ? t : t.project_out(isl::dim_type::param, pos, 1);
+}
+} // namespace
+
 void Scop::promoteGroup(
     PromotedDecl::Kind kind,
     isl::id tensorId,
@@ -209,13 +218,46 @@ void Scop::promoteGroup(
 
   auto activeProms = activePromotions(activePoints, tensorId);
   if (activeProms.size() != 0) {
-    // FIXME: allow double promotion if copies are inserted properly,
-    // in particular if the new promotion is strictly smaller in scope
-    // and size than the existing ones (otherwise we would need to find
-    // the all the existing ones and change their copy relations).
-    std::cerr << "FIXME: not promoting because another promotion of tensor "
-              << tensorId << " is active in " << activeProms[0].first
-              << std::endl;
+    if (activeProms.size() != 1) {
+      LOG(WARNING) << "not promoting " << tensorId << " because multiple "
+                   << "other promotions are active in " << activePoints;
+    }
+
+    // Allow double promotion, i.e. promoting further from an already promoted
+    // group if the second group is smaller in terms of accessed elements.
+    // (otherwise we would need to create copies from different sources).
+    if (!gr->approximateFootprint().is_subset(
+            activeProms[0].second.group->approximateFootprint())) {
+      return;
+    }
+
+    auto groupId = nextGroupIdForTensor(tensorId);
+    insertIntraCopiesUnder(
+        *this,
+        tree,
+        *gr,
+        *activeProms[0].second.group,
+        tensorId,
+        groupId,
+        activeProms[0].second.groupId);
+    promotedDecls_[groupId] =
+        PromotedDecl{tensorId, gr->approximationSizes(), kind};
+
+    auto it = std::find_if(
+        activePromotions_.begin(),
+        activePromotions_.end(),
+        [&activeProms](const std::pair<isl::union_set, PromotionInfo>& kvp) {
+          return kvp.first.is_equal(activeProms[0].first) &&
+              kvp.second.group == activeProms[0].second.group &&
+              kvp.second.outerSchedule.is_equal(
+                  activeProms[0].second.outerSchedule) &&
+              kvp.second.groupId == activeProms[0].second.groupId;
+        });
+    it->first = it->first.subtract(activePoints);
+    auto group = std::shared_ptr<TensorReferenceGroup>(std::move(gr));
+    activePromotions_.emplace_back(
+        std::make_pair(activePoints, PromotionInfo{group, schedule, groupId}));
+
     return;
   }
 
@@ -231,6 +273,90 @@ void Scop::promoteGroup(
   auto group = std::shared_ptr<TensorReferenceGroup>(std::move(gr));
   activePromotions_.emplace_back(
       std::make_pair(activePoints, PromotionInfo{group, schedule, groupId}));
+}
+
+namespace {
+inline bool rangeOfUMapContainsTupleId(isl::union_map umap, isl::id id) {
+  for (auto s : isl::UnionAsVector<isl::union_set>(umap.range())) {
+    if (s.get_tuple_id() == id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+inline isl::union_map dropMapsWithRangeTupleId(
+    isl::union_map umap,
+    isl::id id) {
+  isl::union_map result = isl::union_map::empty(umap.get_space());
+  for (auto m : isl::UnionAsVector<isl::union_map>(umap)) {
+    if (!m.can_uncurry()) {
+      result = result.add_map(m);
+      continue;
+    }
+    if (m.uncurry().get_tuple_id(isl::dim_type::out) != id) {
+      result = result.add_map(m);
+    }
+  }
+  return result;
+}
+} // namespace
+
+void Scop::demoteGroup(isl::id groupId) {
+  using namespace polyhedral::detail;
+
+  auto extensions = match(
+      extension(
+          [groupId](isl::union_map m) {
+            return rangeOfUMapContainsTupleId(m.range().unwrap(), groupId);
+          },
+          sequence(any())),
+      scheduleRoot());
+
+  CHECK_EQ(extensions.size(), 1)
+      << "group " << groupId << " is not present as schedule extension.";
+
+  auto extensionTree = const_cast<ScheduleTree*>(extensions[0]);
+
+  auto sequenceTree = extensionTree->child({0});
+  for (size_t i = sequenceTree->numChildren(); i > 0; --i) {
+    auto filterElem =
+        sequenceTree->child({i - 1})->elemAs<ScheduleTreeElemFilter>();
+    CHECK(filterElem) << "expected children of a sequence node to be filters "
+                      << "got\n"
+                      << *sequenceTree;
+    if (!rangeOfUMapContainsTupleId(filterElem->filter_.unwrap(), groupId)) {
+      continue;
+    }
+    CHECK_EQ(filterElem->filter_.n_set(), 1)
+        << "filter for copy code contains more than one statement";
+    sequenceTree->detachChild({i - 1});
+  }
+
+  auto extensionElem = extensionTree->elemAs<ScheduleTreeElemExtension>();
+  extensionElem->extension_ =
+      dropMapsWithRangeTupleId(extensionElem->extension_, groupId);
+
+  if (extensionElem->extension_.is_empty()) {
+    auto parent = extensionTree->ancestor(scheduleRoot(), 1);
+    auto pos = extensionTree->positionInParent(parent);
+    if (sequenceTree->numChildren() > 1) {
+      auto ownedSequenceTree = extensionTree->detachChildren();
+      parent->detachChild(pos);
+      parent->insertChildren(pos, std::move(ownedSequenceTree));
+    } else {
+      auto ownedChildren = sequenceTree->detachChildren();
+      parent->detachChild(pos);
+      parent->insertChildren(pos, std::move(ownedChildren));
+    }
+  }
+
+  for (size_t i = activePromotions_.size(); i > 0; --i) {
+    if (activePromotions_[i - 1].second.groupId == groupId) {
+      activePromotions_.erase(activePromotions_.begin() + (i - 1));
+    }
+  }
+  promotedDecls_.erase(groupId);
 }
 
 void Scop::insertSyncsAroundCopies(
