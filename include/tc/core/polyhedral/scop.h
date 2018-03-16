@@ -399,7 +399,9 @@ struct Scop {
   //         // <-- sync will be inserted here
   //         )))
   //
-  void insertSyncsAroundCopies(detail::ScheduleTree* tree);
+  void insertSyncsAroundCopies(
+      detail::ScheduleTree* tree,
+      bool insertAroundComputation = true);
 
  private:
   // Compute a schedule satisfying the given schedule constraints and

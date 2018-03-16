@@ -217,7 +217,9 @@ void Scop::promoteGroup(
   }
 }
 
-void Scop::insertSyncsAroundCopies(ScheduleTree* tree) {
+void Scop::insertSyncsAroundCopies(
+    ScheduleTree* tree,
+    bool insertAroundComputation) {
   // Return immediately if nothing was inserted
   auto extensionNode =
       tree->child({0})->elemAs<detail::ScheduleTreeElemExtension>();
@@ -230,25 +232,27 @@ void Scop::insertSyncsAroundCopies(ScheduleTree* tree) {
   CHECK(seqNode->elemAs<detail::ScheduleTreeElemSequence>())
       << "unexpected tree structure";
 
-  int foundMainComputations = 0;
-  for (size_t i = 0; i < seqNode->numChildren(); ++i) {
-    auto filterNode =
-        seqNode->child({i})->elemAs<detail::ScheduleTreeElemFilter>();
-    CHECK(filterNode) << "expected filters below sequence";
-    auto filters = isl::UnionAsVector<isl::union_set>(filterNode->filter_);
-    bool isCopyFilter = filters.size() == 1 && filters[0].has_tuple_name() &&
-        (filters[0].get_tuple_name() == kReadIdName ||
-         filters[0].get_tuple_name() == kWriteIdName);
-    if ((foundMainComputations != 0) ^ isCopyFilter) {
-      continue;
+  if (insertAroundComputation) {
+    int foundMainComputations = 0;
+    for (size_t i = 0; i < seqNode->numChildren(); ++i) {
+      auto filterNode =
+          seqNode->child({i})->elemAs<detail::ScheduleTreeElemFilter>();
+      CHECK(filterNode) << "expected filters below sequence";
+      auto filters = isl::UnionAsVector<isl::union_set>(filterNode->filter_);
+      bool isCopyFilter = filters.size() == 1 && filters[0].has_tuple_name() &&
+          (filters[0].get_tuple_name() == kReadIdName ||
+           filters[0].get_tuple_name() == kWriteIdName);
+      if ((foundMainComputations != 0) ^ isCopyFilter) {
+        continue;
+      }
+      if (!isCopyFilter) {
+        ++foundMainComputations;
+      }
+      CHECK_LT(foundMainComputations, 2)
+          << "copies are interleaved with computation" << *seqNode;
+      insertSync(seqNode, i);
+      ++i;
     }
-    if (!isCopyFilter) {
-      ++foundMainComputations;
-    }
-    CHECK_LT(foundMainComputations, 2)
-        << "copies are interleaved with computation" << *seqNode;
-    insertSync(seqNode, i);
-    ++i;
   }
   insertSync(seqNode, 0);
   insertSync(seqNode, seqNode->numChildren());
