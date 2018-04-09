@@ -28,6 +28,10 @@
 
 #include "test_harness_aten_cuda.h"
 
+std::string deviceStr() {
+  return tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr();
+}
+
 class CudaCacheTest : public ::testing::Test {
  protected:
   void SetUp() {
@@ -84,7 +88,7 @@ TEST_F(CudaCacheTest, DifferentIDs) {
       inputPtrs,
       outputPtrs,
       "source0",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel1",
       "ker111",
@@ -95,7 +99,7 @@ TEST_F(CudaCacheTest, DifferentIDs) {
       inputPtrs,
       outputPtrs,
       "source1",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
   auto ret = tc::CudaCache::getCache()->retrieveKernel(
       "kernel0", options, inputPtrs, outputPtrs);
@@ -146,7 +150,7 @@ TEST_F(CudaCacheTest, DifferentOptions) {
       inputPtrs,
       outputPtrs,
       "source0",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
   auto options1 = tc::CudaMappingOptions::makeMlpCudaMappingOptions();
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
@@ -159,7 +163,7 @@ TEST_F(CudaCacheTest, DifferentOptions) {
       inputPtrs,
       outputPtrs,
       "source1",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
   auto ret = tc::CudaCache::getCache()->retrieveKernel(
       "kernel", options0, inputPtrs, outputPtrs);
@@ -201,7 +205,7 @@ TEST_F(CudaCacheTest, DifferentInputs) {
       inputPtrs,
       outputPtrs,
       "source0",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
   auto s = inputs[0].shape[0];
   inputs[0].shape[0] = 42;
@@ -215,7 +219,7 @@ TEST_F(CudaCacheTest, DifferentInputs) {
       inputPtrs,
       outputPtrs,
       "source1",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
   inputs[0].shape[0] = s;
   auto ret = tc::CudaCache::getCache()->retrieveKernel(
@@ -259,7 +263,7 @@ TEST_F(CudaCacheTest, DoubleInsertion) {
       inputPtrs,
       outputPtrs,
       "source0",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
   EXPECT_THROW(
       tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
@@ -272,7 +276,7 @@ TEST_F(CudaCacheTest, DoubleInsertion) {
           inputPtrs,
           outputPtrs,
           "source1",
-          tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr())),
+          deviceStr())),
       tc::CacheEntrySameKeyDifferentValue);
 
   EXPECT_THROW(
@@ -286,7 +290,7 @@ TEST_F(CudaCacheTest, DoubleInsertion) {
           inputPtrs,
           outputPtrs,
           "source0",
-          tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr())),
+          deviceStr())),
       tc::CacheEntrySameKeyDifferentValue);
 
   EXPECT_THROW(
@@ -300,7 +304,7 @@ TEST_F(CudaCacheTest, DoubleInsertion) {
           inputPtrs,
           outputPtrs,
           "source0",
-          tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr())),
+          deviceStr())),
       tc::CacheEntrySameKeyDifferentValue);
 
   ASSERT_EQ(tc::CudaCache::getCache()->size(), 1);
@@ -324,7 +328,7 @@ TEST_F(CudaCacheTest, Serialization) {
       inputPtrs,
       outputPtrs,
       "source0",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel1",
       "",
@@ -335,7 +339,7 @@ TEST_F(CudaCacheTest, Serialization) {
       inputPtrs,
       outputPtrs,
       "source1",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
   auto buf = tc::CudaCache::getCache()->toProtobuf();
 
@@ -373,13 +377,13 @@ TEST_F(CudaCacheTest, Serialization) {
 class OptionsCacheTest : public ::testing::Test {
  protected:
   void SetUp() {
-    tc::OptionsCache::enableCache();
-    ASSERT_TRUE(tc::OptionsCache::cacheEnabled());
-    tc::OptionsCache::getCache()->clear();
-    ASSERT_EQ(tc::OptionsCache::getCache()->size(), 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 0);
+    tc::CudaOptionsCache::enableCache();
+    ASSERT_TRUE(tc::CudaOptionsCache::cacheEnabled());
+    tc::CudaOptionsCache::getCache()->clear();
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 0);
 
     inputs.resize(3);
     for (auto& input : inputs) {
@@ -394,8 +398,8 @@ class OptionsCacheTest : public ::testing::Test {
   }
 
   void TearDown() {
-    tc::OptionsCache::disableCache();
-    ASSERT_FALSE(tc::OptionsCache::cacheEnabled());
+    tc::CudaOptionsCache::disableCache();
+    ASSERT_FALSE(tc::CudaOptionsCache::cacheEnabled());
     for (auto& input : inputs) {
       delete[] input.shape;
     }
@@ -416,37 +420,52 @@ TEST_F(OptionsCacheTest, DifferentIDs) {
   auto inputPtrs = InputPtrs();
   auto outputPtrs = InputPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel0", options, inputPtrs, outputPtrs, std::chrono::microseconds(10));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel0", options, inputPtrs, outputPtrs, std::chrono::microseconds(11));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel1", options, inputPtrs, outputPtrs, std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel0",
+      options,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(10));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel0",
+      options,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(11));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel1",
+      options,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
 
-  auto ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel0", inputPtrs, outputPtrs);
+  auto ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel0", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 1);
   ASSERT_EQ(ret[0].options, options);
   ASSERT_EQ(ret[0].recordedRuntimes.size(), 2);
   ASSERT_EQ(ret[0].recordedRuntimes[0], std::chrono::microseconds(10));
   ASSERT_EQ(ret[0].recordedRuntimes[1], std::chrono::microseconds(11));
 
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel1", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel1", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 1);
   ASSERT_EQ(ret[0].options, options);
   ASSERT_EQ(ret[0].recordedRuntimes.size(), 1);
   ASSERT_EQ(ret[0].recordedRuntimes[0], std::chrono::microseconds(1));
 
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel2", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel2", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 0);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 3);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 3);
 }
 
 TEST_F(OptionsCacheTest, DifferentOptions) {
@@ -455,13 +474,23 @@ TEST_F(OptionsCacheTest, DifferentOptions) {
   auto inputPtrs = InputPtrs();
   auto outputPtrs = InputPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options0, inputPtrs, outputPtrs, std::chrono::microseconds(1));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options1, inputPtrs, outputPtrs, std::chrono::microseconds(2));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(2));
 
-  auto ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel", inputPtrs, outputPtrs);
+  auto ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel", inputPtrs, outputPtrs, deviceStr());
 
   ASSERT_EQ(ret.size(), 2);
   ASSERT_EQ(ret[0].options, options0);
@@ -471,11 +500,11 @@ TEST_F(OptionsCacheTest, DifferentOptions) {
   ASSERT_EQ(ret[1].recordedRuntimes.size(), 1);
   ASSERT_EQ(ret[1].recordedRuntimes[0], std::chrono::microseconds(2));
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 2);
 }
 
 TEST_F(OptionsCacheTest, DifferentInputs) {
@@ -483,22 +512,37 @@ TEST_F(OptionsCacheTest, DifferentInputs) {
   auto inputPtrs = InputPtrs();
   auto outputPtrs = InputPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options, inputPtrs, outputPtrs, std::chrono::microseconds(1));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options, inputPtrs, outputPtrs, std::chrono::microseconds(2));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(2));
 
   auto s = inputs[0].shape[0];
   inputs[0].shape[0] = 42;
 
   auto options_ =
       tc::CudaMappingOptions::makeGroupConvolutionCudaMappingOptions();
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options_, inputPtrs, outputPtrs, std::chrono::microseconds(3));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options_,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(3));
 
   inputs[0].shape[0] = s;
-  auto ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel", inputPtrs, outputPtrs);
+  auto ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel", inputPtrs, outputPtrs, deviceStr());
 
   ASSERT_EQ(ret.size(), 1);
   ASSERT_EQ(ret[0].options, options);
@@ -507,8 +551,8 @@ TEST_F(OptionsCacheTest, DifferentInputs) {
   ASSERT_EQ(ret[0].recordedRuntimes[1], std::chrono::microseconds(2));
 
   inputs[0].shape[0] = 42;
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel", inputPtrs, outputPtrs, deviceStr());
 
   ASSERT_EQ(ret.size(), 1);
   ASSERT_EQ(ret[0].options, options_);
@@ -516,15 +560,15 @@ TEST_F(OptionsCacheTest, DifferentInputs) {
   ASSERT_EQ(ret[0].recordedRuntimes[0], std::chrono::microseconds(3));
 
   inputs[0].shape[0] = 43;
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 0);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 3);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 3);
 }
 
 TEST_F(OptionsCacheTest, RetrieveBest) {
@@ -538,27 +582,42 @@ TEST_F(OptionsCacheTest, RetrieveBest) {
   auto inputPtrs = InputPtrs();
   auto outputPtrs = InputPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options0, inputPtrs, outputPtrs, std::chrono::microseconds(1));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options1, inputPtrs, outputPtrs, std::chrono::microseconds(2));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options2, inputPtrs, outputPtrs, std::chrono::microseconds(3));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(2));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options2,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(3));
 
-  auto ret = tc::OptionsCache::getCache()->retrieveBestOptions(
-      "kernel", inputPtrs, outputPtrs);
+  auto ret = tc::CudaOptionsCache::getCache()->retrieveBestOptions(
+      "kernel", inputPtrs, outputPtrs, deviceStr());
   ASSERT_TRUE(ret);
   ASSERT_EQ(*ret, options0);
 
-  ret = tc::OptionsCache::getCache()->retrieveBestOptions(
-      "kernelX", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveBestOptions(
+      "kernelX", inputPtrs, outputPtrs, deviceStr());
   ASSERT_FALSE(ret);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 3);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 3);
 }
 
 TEST_F(OptionsCacheTest, RetrieveTopK) {
@@ -576,30 +635,55 @@ TEST_F(OptionsCacheTest, RetrieveTopK) {
   auto inputPtrs = InputPtrs();
   auto outputPtrs = InputPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options0, inputPtrs, outputPtrs, std::chrono::microseconds(3));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options1, inputPtrs, outputPtrs, std::chrono::microseconds(2));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options2, inputPtrs, outputPtrs, std::chrono::microseconds(1));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options3, inputPtrs, outputPtrs, std::chrono::microseconds(4));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options4, inputPtrs, outputPtrs, std::chrono::microseconds(5));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(3));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(2));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options2,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options3,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(4));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options4,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(5));
 
-  auto ret = tc::OptionsCache::getCache()->retrieveTopKOptions(
-      "kernelX", inputPtrs, outputPtrs, 3);
+  auto ret = tc::CudaOptionsCache::getCache()->retrieveTopKOptions(
+      "kernelX", inputPtrs, outputPtrs, deviceStr(), 3);
   ASSERT_EQ(ret.size(), 0);
 
-  ret = tc::OptionsCache::getCache()->retrieveTopKOptions(
-      "kernel", inputPtrs, outputPtrs, 3);
+  ret = tc::CudaOptionsCache::getCache()->retrieveTopKOptions(
+      "kernel", inputPtrs, outputPtrs, deviceStr(), 3);
   ASSERT_EQ(ret.size(), 3);
   ASSERT_EQ(ret[0], options2);
   ASSERT_EQ(ret[1], options1);
   ASSERT_EQ(ret[2], options0);
 
-  ret = tc::OptionsCache::getCache()->retrieveTopKOptions(
-      "kernel", inputPtrs, outputPtrs, 6);
+  ret = tc::CudaOptionsCache::getCache()->retrieveTopKOptions(
+      "kernel", inputPtrs, outputPtrs, deviceStr(), 6);
   ASSERT_EQ(ret.size(), 5);
   ASSERT_EQ(ret[0], options2);
   ASSERT_EQ(ret[1], options1);
@@ -607,11 +691,11 @@ TEST_F(OptionsCacheTest, RetrieveTopK) {
   ASSERT_EQ(ret[3], options3);
   ASSERT_EQ(ret[4], options4);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 5);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 3);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 5);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 5);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 5);
 }
 
 TEST_F(OptionsCacheTest, KeepOnlyBestCandidates) {
@@ -629,61 +713,111 @@ TEST_F(OptionsCacheTest, KeepOnlyBestCandidates) {
   auto inputPtrs = InputPtrs();
   auto outputPtrs = InputPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel0", options0, inputPtrs, outputPtrs, std::chrono::microseconds(3));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel0", options1, inputPtrs, outputPtrs, std::chrono::microseconds(2));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel0", options2, inputPtrs, outputPtrs, std::chrono::microseconds(4));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel0",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(3));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel0",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(2));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel0",
+      options2,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(4));
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel1", options2, inputPtrs, outputPtrs, std::chrono::microseconds(4));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel1", options3, inputPtrs, outputPtrs, std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel1",
+      options2,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(4));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel1",
+      options3,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel2", options4, inputPtrs, outputPtrs, std::chrono::microseconds(5));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel2",
+      options4,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(5));
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel3", options0, inputPtrs, outputPtrs, std::chrono::microseconds(2));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel3", options1, inputPtrs, outputPtrs, std::chrono::microseconds(6));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel3", options3, inputPtrs, outputPtrs, std::chrono::microseconds(5));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel3", options4, inputPtrs, outputPtrs, std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel3",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(2));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel3",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(6));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel3",
+      options3,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(5));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel3",
+      options4,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 10);
-  tc::OptionsCache::getCache()->keepOnlyBestCandidates(2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 10);
+  tc::CudaOptionsCache::getCache()->keepOnlyBestCandidates(2);
 
-  auto ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel0", inputPtrs, outputPtrs);
+  auto ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel0", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 2);
   ASSERT_EQ(ret[0].options, options1);
   ASSERT_EQ(ret[1].options, options0);
 
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel1", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel1", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 2);
   ASSERT_EQ(ret[0].options, options3);
   ASSERT_EQ(ret[1].options, options2);
 
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel2", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel2", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 1);
   ASSERT_EQ(ret[0].options, options4);
 
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel3", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel3", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 2);
   ASSERT_EQ(ret[0].options, options4);
   ASSERT_EQ(ret[1].options, options0);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 7);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 10);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 7);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 10);
 }
 
 TEST_F(OptionsCacheTest, RetrieveBestMedianTime) {
@@ -695,30 +829,60 @@ TEST_F(OptionsCacheTest, RetrieveBestMedianTime) {
   auto inputPtrs = InputPtrs();
   auto outputPtrs = InputPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options0, inputPtrs, outputPtrs, std::chrono::microseconds(1));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options0, inputPtrs, outputPtrs, std::chrono::microseconds(9));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options0, inputPtrs, outputPtrs, std::chrono::microseconds(10));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(9));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(10));
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options1, inputPtrs, outputPtrs, std::chrono::microseconds(8));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options1, inputPtrs, outputPtrs, std::chrono::microseconds(8));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel", options1, inputPtrs, outputPtrs, std::chrono::microseconds(8));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(8));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(8));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(8));
 
-  auto ret = tc::OptionsCache::getCache()->retrieveBestOptions(
-      "kernel", inputPtrs, outputPtrs);
+  auto ret = tc::CudaOptionsCache::getCache()->retrieveBestOptions(
+      "kernel", inputPtrs, outputPtrs, deviceStr());
   ASSERT_TRUE(ret);
   ASSERT_EQ(*ret, options1);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 1);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 6);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 1);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 6);
 }
 
 TEST_F(OptionsCacheTest, Serialization) {
@@ -727,32 +891,39 @@ TEST_F(OptionsCacheTest, Serialization) {
   auto inputPtrs = InputPtrs();
   auto outputPtrs = InputPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
+  tc::CudaOptionsCache::getCache()->recordRuntime(
       "kernel0",
       options0,
       inputPtrs,
       outputPtrs,
+      deviceStr(),
       std::chrono::microseconds(10));
-  tc::OptionsCache::getCache()->recordRuntime(
+  tc::CudaOptionsCache::getCache()->recordRuntime(
       "kernel0",
       options1,
       inputPtrs,
       outputPtrs,
+      deviceStr(),
       std::chrono::microseconds(11));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel1", options0, inputPtrs, outputPtrs, std::chrono::microseconds(1));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel1",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
 
-  auto buf = tc::OptionsCache::getCache()->toProtobuf();
-  tc::OptionsCache::loadCacheFromProtobuf(buf);
+  auto buf = tc::CudaOptionsCache::getCache()->toProtobuf();
+  tc::CudaOptionsCache::loadCacheFromProtobuf(buf);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 3);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 0);
 
-  auto ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel0", inputPtrs, outputPtrs);
+  auto ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel0", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 2);
   ASSERT_EQ(ret[0].options, options0);
   ASSERT_EQ(ret[0].recordedRuntimes.size(), 1);
@@ -762,29 +933,29 @@ TEST_F(OptionsCacheTest, Serialization) {
   ASSERT_EQ(ret[1].recordedRuntimes.size(), 1);
   ASSERT_EQ(ret[1].recordedRuntimes[0], std::chrono::microseconds(11));
 
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel1", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel1", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 1);
   ASSERT_EQ(ret[0].options, options0);
   ASSERT_EQ(ret[0].recordedRuntimes.size(), 1);
   ASSERT_EQ(ret[0].recordedRuntimes[0], std::chrono::microseconds(1));
 
-  ret = tc::OptionsCache::getCache()->retrieveOptionsAndRuntimes(
-      "kernel2", inputPtrs, outputPtrs);
+  ret = tc::CudaOptionsCache::getCache()->retrieveOptionsAndRuntimes(
+      "kernel2", inputPtrs, outputPtrs, deviceStr());
   ASSERT_EQ(ret.size(), 0);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 3);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 3);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 3);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 0);
 }
 
 TEST(
     CudaAndOptionsCacheInteraction,
     RemoveFromCudaCacheEntriesNotInOptionsCache) {
-  tc::OptionsCache::enableCache();
-  tc::OptionsCache::getCache()->clear();
+  tc::CudaOptionsCache::enableCache();
+  tc::CudaOptionsCache::getCache()->clear();
   tc::CudaCache::enableCache();
   tc::CudaCache::getCache()->clear();
 
@@ -828,8 +999,13 @@ TEST(
   auto inputPtrs = toPtrs();
   auto outputPtrs = toPtrs();
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel0", options0, inputPtrs, outputPtrs, std::chrono::microseconds(3));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel0",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(3));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel0",
       "",
@@ -840,9 +1016,14 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source0",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel0", options1, inputPtrs, outputPtrs, std::chrono::microseconds(2));
+      deviceStr()));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel0",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(2));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel0",
       "",
@@ -853,9 +1034,14 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source1",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel0", options2, inputPtrs, outputPtrs, std::chrono::microseconds(4));
+      deviceStr()));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel0",
+      options2,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(4));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel0",
       "",
@@ -866,10 +1052,15 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source2",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel1", options2, inputPtrs, outputPtrs, std::chrono::microseconds(4));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel1",
+      options2,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(4));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel1",
       "",
@@ -880,9 +1071,14 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source2",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel1", options3, inputPtrs, outputPtrs, std::chrono::microseconds(1));
+      deviceStr()));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel1",
+      options3,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel1",
       "",
@@ -893,10 +1089,15 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source3",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel2", options4, inputPtrs, outputPtrs, std::chrono::microseconds(5));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel2",
+      options4,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(5));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel2",
       "",
@@ -907,10 +1108,15 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source4",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel3", options0, inputPtrs, outputPtrs, std::chrono::microseconds(2));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel3",
+      options0,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(2));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel3",
       "",
@@ -921,9 +1127,14 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source0",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel3", options1, inputPtrs, outputPtrs, std::chrono::microseconds(6));
+      deviceStr()));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel3",
+      options1,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(6));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel3",
       "",
@@ -934,9 +1145,14 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source1",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel3", options3, inputPtrs, outputPtrs, std::chrono::microseconds(5));
+      deviceStr()));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel3",
+      options3,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(5));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel3",
       "",
@@ -947,9 +1163,14 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source3",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
-  tc::OptionsCache::getCache()->recordRuntime(
-      "kernel3", options4, inputPtrs, outputPtrs, std::chrono::microseconds(1));
+      deviceStr()));
+  tc::CudaOptionsCache::getCache()->recordRuntime(
+      "kernel3",
+      options4,
+      inputPtrs,
+      outputPtrs,
+      deviceStr(),
+      std::chrono::microseconds(1));
   tc::CudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
       "kernel3",
       "",
@@ -960,11 +1181,11 @@ TEST(
       inputPtrs,
       outputPtrs,
       "source4",
-      tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+      deviceStr()));
 
-  tc::OptionsCache::getCache()->keepOnlyBestCandidates(1);
+  tc::CudaOptionsCache::getCache()->keepOnlyBestCandidates(1);
   tc::removeFromCudaCacheEntriesNotInOptionsCache(
-      *tc::CudaCache::getCache(), *tc::OptionsCache::getCache());
+      *tc::CudaCache::getCache(), *tc::CudaOptionsCache::getCache());
 
   ASSERT_EQ(tc::CudaCache::getCache()->size(), 4);
 
@@ -1103,14 +1324,14 @@ class CompilationCacheTest : public ::testing::Test {
     ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 0);
     ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 0);
 
-    tc::OptionsCache::enableCache();
-    ASSERT_TRUE(tc::OptionsCache::cacheEnabled());
-    tc::OptionsCache::getCache()->clear();
-    ASSERT_EQ(tc::OptionsCache::getCache()->size(), 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 0);
+    tc::CudaOptionsCache::enableCache();
+    ASSERT_TRUE(tc::CudaOptionsCache::cacheEnabled());
+    tc::CudaOptionsCache::getCache()->clear();
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 0);
 
     tc::ManualCudaCache::enableCache();
     ASSERT_TRUE(tc::ManualCudaCache::cacheEnabled());
@@ -1129,18 +1350,18 @@ class CompilationCacheTest : public ::testing::Test {
     ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 0);
     ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 2);
 
-    ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-    ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-    ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 2);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+    ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 2);
   }
 
   void TearDown() {
     tc::CudaCache::disableCache();
     ASSERT_FALSE(tc::CudaCache::cacheEnabled());
-    tc::OptionsCache::disableCache();
-    ASSERT_FALSE(tc::OptionsCache::cacheEnabled());
+    tc::CudaOptionsCache::disableCache();
+    ASSERT_FALSE(tc::CudaOptionsCache::cacheEnabled());
   }
 
   // FCReluTester test0{8, 16, 16};
@@ -1163,11 +1384,11 @@ TEST_F(CompilationCacheTest, ExpectQuerySuccess) {
   ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 2);
   ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 2);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 4);
 }
 
 TEST_F(CompilationCacheTest, ExpectQuerySuccessConcurrent) {
@@ -1197,11 +1418,11 @@ TEST_F(CompilationCacheTest, ExpectQuerySuccessConcurrent) {
   ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 2);
   ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 2);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 4);
 }
 
 TEST_F(CompilationCacheTest, ShapesNotPresentInCache) {
@@ -1219,11 +1440,11 @@ TEST_F(CompilationCacheTest, ShapesNotPresentInCache) {
   ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 0);
   ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 4);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 4);
 }
 TEST_F(CompilationCacheTest, ShapesNotPresentInCacheConcurrent) {
   // auto fut0 = std::async(std::launch::async, []() {
@@ -1250,11 +1471,11 @@ TEST_F(CompilationCacheTest, ShapesNotPresentInCacheConcurrent) {
   ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 0);
   ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 4);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 4);
 }
 
 TEST_F(CompilationCacheTest, ModifyIslOptions) {
@@ -1284,11 +1505,11 @@ TEST_F(CompilationCacheTest, ModifyIslOptions) {
   ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 0);
   ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 4);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 4);
 }
 
 TEST_F(CompilationCacheTest, ModifyIslOptionsConcurrent) {
@@ -1328,11 +1549,11 @@ TEST_F(CompilationCacheTest, ModifyIslOptionsConcurrent) {
   ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 0);
   ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 4);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 4);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 4);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 4);
 }
 
 TEST_F(CompilationCacheTest, Serialization) {
@@ -1341,8 +1562,8 @@ TEST_F(CompilationCacheTest, Serialization) {
     tc::CudaCache::loadCacheFromProtobuf(buf);
   }
   {
-    auto buf = tc::OptionsCache::getCache()->toProtobuf();
-    tc::OptionsCache::loadCacheFromProtobuf(buf);
+    auto buf = tc::CudaOptionsCache::getCache()->toProtobuf();
+    tc::CudaOptionsCache::loadCacheFromProtobuf(buf);
   }
 
   ASSERT_EQ(tc::CudaCache::getCache()->size(), 2);
@@ -1350,11 +1571,11 @@ TEST_F(CompilationCacheTest, Serialization) {
   ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 0);
   ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 0);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 0);
 
   /*
    *FCReluTester test0{8, 16, 16};
@@ -1372,11 +1593,11 @@ TEST_F(CompilationCacheTest, Serialization) {
   ASSERT_EQ(tc::CudaCache::getCache()->numberSuccessfulRetrievals, 2);
   ASSERT_EQ(tc::CudaCache::getCache()->numberCacheAttemps, 0);
 
-  ASSERT_EQ(tc::OptionsCache::getCache()->size(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->totalSize(), 2);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberAttemptedRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberSuccessfulRetrievals, 0);
-  ASSERT_EQ(tc::OptionsCache::getCache()->numberCacheAttemps, 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->size(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->totalSize(), 2);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberAttemptedRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberSuccessfulRetrievals, 0);
+  ASSERT_EQ(tc::CudaOptionsCache::getCache()->numberCacheAttemps, 2);
 }
 
 TEST(CompilationCache, ManualInjection) {
@@ -1418,7 +1639,7 @@ __global__ void add100(float* __restrict__ output, const float* __restrict__ A, 
         tensorsPair.first,
         outputs,
         cudaSource,
-        tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+        deviceStr()));
   }
 
   auto handle = atCompl.compile("add", inputs, options);

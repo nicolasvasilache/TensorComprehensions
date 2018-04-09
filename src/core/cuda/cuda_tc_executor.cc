@@ -211,12 +211,13 @@ Duration CudaTcExecutor::run(
       O,
       I,
       profile);
-  if (profile and OptionsCache::cacheEnabled()) {
-    OptionsCache::getCache()->recordRuntime(
+  if (profile and CudaOptionsCache::cacheEnabled()) {
+    CudaOptionsCache::getCache()->recordRuntime(
         cacheKeyId_,
         CudaMappingOptions(executionInfo_.options),
         inputs,
         constPtrs(outputs),
+        CudaGPUInfo::GPUInfo().GetCudaDeviceStr(),
         res);
   }
   return res;

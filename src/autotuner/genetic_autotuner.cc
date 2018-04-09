@@ -42,10 +42,11 @@ GeneticAutotuner::GeneticAutotuner(const std::string& tc) : tc_(tc) {
 namespace {
 
 void enableOrLoadCache(const std::string& filename) {
-  tc::OptionsCache::enableCache();
+  tc::CudaOptionsCache::enableCache();
   tc::CudaCache::enableCache();
   if (!filename.empty()) {
-    tc::OptionsCache::loadCacheFromProtobuf(tc::makeOptionsFilename(filename));
+    tc::CudaOptionsCache::loadCacheFromProtobuf(
+        tc::makeOptionsFilename(filename));
     tc::CudaCache::loadCacheFromProtobuf(tc::makeCudaFilename(filename));
   }
 }
@@ -57,12 +58,13 @@ void GeneticAutotuner::storeCaches(const std::string& filename) {
   } else {
     std::cout << "Dumping cache to " << filename << ".cuda/options"
               << std::endl;
-    tc::OptionsCache::getCache()->keepOnlyBestCandidates(10);
-    tc::OptionsCache::dumpCacheToProtobuf(tc::makeOptionsFilename(filename));
+    tc::CudaOptionsCache::getCache()->keepOnlyBestCandidates(10);
+    tc::CudaOptionsCache::dumpCacheToProtobuf(
+        tc::makeOptionsFilename(filename));
 
-    tc::OptionsCache::getCache()->keepOnlyBestCandidates(1);
+    tc::CudaOptionsCache::getCache()->keepOnlyBestCandidates(1);
     tc::removeFromCudaCacheEntriesNotInOptionsCache(
-        *tc::CudaCache::getCache(), *tc::OptionsCache::getCache());
+        *tc::CudaCache::getCache(), *tc::CudaOptionsCache::getCache());
     tc::CudaCache::dumpCacheToProtobuf(tc::makeCudaFilename(filename));
   }
 }
@@ -80,8 +82,11 @@ std::vector<CudaMappingOptions> GeneticAutotuner::load(
   ExecutionEngine<CudaTcExecutor> ee;
   ee.define(tc_);
   auto outputs = ee.inferOutputTensorInfo(tcName, inputs);
-  return tc::autotune::restoreCandidates(
-      canonicalTc(tcNameMap_.at(tcName)), inputs, outputs);
+  return tc::autotune::restoreCandidates<CudaOptionsCache>(
+      canonicalTc(tcNameMap_.at(tcName)),
+      inputs,
+      outputs,
+      CudaGPUInfo::GPUInfo().GetCudaDeviceStr());
 }
 
 namespace {
@@ -185,8 +190,11 @@ llvm::Optional<CudaMappingOptions> GeneticAutotuner::tune(
   auto outputPtrs = ee.inferOutputTensorInfo(tcName, inputs.begin()->second);
 
   CHECK_GT(inputs.size(), 0);
-  return tc::autotune::getBestOptions(
-      canonicalTc(tcNameMap_.at(tcName)), inputs.begin()->second, outputPtrs);
+  return tc::autotune::getBestOptions<CudaOptionsCache>(
+      canonicalTc(tcNameMap_.at(tcName)),
+      inputs.begin()->second,
+      outputPtrs,
+      CudaGPUInfo::GPUInfo().GetCudaDeviceStr());
 }
 
 } // namespace detail

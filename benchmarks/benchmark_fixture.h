@@ -258,8 +258,8 @@ struct Benchmark : public ::testing::Test {
               << tc::makeOptionsFilename(cacheFilename) << "and "
               << tc::makeCudaFilename(cacheFilename) << std::endl;
 
-    tc::OptionsCache::enableCache();
-    tc::OptionsCache::loadCacheFromProtobuf(cacheFilename + ".options");
+    tc::CudaOptionsCache::enableCache();
+    tc::CudaOptionsCache::loadCacheFromProtobuf(cacheFilename + ".options");
     tc::CudaCache::enableCache();
     tc::CudaCache::loadCacheFromProtobuf(tc::makeCudaFilename(cacheFilename));
     tc::FLAGS_tuner_gen_restore_number = 1;
@@ -271,8 +271,11 @@ struct Benchmark : public ::testing::Test {
       auto inputsPair = tc::toConstDlpackTensors(inputs);
       auto outputs = atCompl.inferOutputTensorInfo(name, inputs);
       tc::ScopeGuard g([&]() { tc::deleteDlmTensors(inputsPair.second); });
-      return tc::autotune::restoreCandidates(
-          lang::canonicalTc(tc), inputsPair.first, outputs);
+      return tc::autotune::restoreCandidates<tc::CudaOptionsCache>(
+          lang::canonicalTc(tc),
+          inputsPair.first,
+          outputs,
+          tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr());
     }();
     auto handle = atCompl.compile(name, inputs, mappingOptions[0]);
     std::vector<at::Tensor> outputs;

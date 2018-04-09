@@ -138,4 +138,26 @@ bool operator==(
   return true;
 }
 
+std::vector<detail::TensorInfo> DLTensorToTensorInfoVector(
+    const std::vector<const DLTensor*>& ts) {
+  std::vector<detail::TensorInfo> iis;
+  iis.reserve(ts.size());
+  std::transform(
+      ts.begin(), ts.end(), std::back_inserter(iis), [](const DLTensor* t) {
+        return detail::TensorInfo{t};
+      });
+  return iis;
+}
+
+std::vector<detail::TensorInfo> ProtoToTensorInfoVector(
+    const google::protobuf::RepeatedPtrField<TensorInfoProto>& buf) {
+  std::vector<detail::TensorInfo> iis;
+  iis.reserve(buf.size());
+  std::transform(
+      buf.begin(),
+      buf.end(),
+      std::back_inserter(iis),
+      [](const TensorInfoProto& iip) { return detail::TensorInfo{iip}; });
+  return iis;
+}
 } // namespace tc

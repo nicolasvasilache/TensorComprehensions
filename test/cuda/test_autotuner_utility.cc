@@ -17,6 +17,7 @@
 
 #include "tc/autotuner/genetic_autotuner.h"
 #include "tc/autotuner/utils/utils.h"
+#include "tc/core/cuda/cuda.h"
 #include "tc/core/cuda/cuda_compilation_cache.h"
 #include "tc/core/cuda/cuda_tc_executor.h"
 #include "tc/core/scope_guard.h"
@@ -54,8 +55,11 @@ std::vector<CudaMappingOptions> restoreCandidates(
     deleteDlmTensors(outputsPair.second);
   });
 
-  return tc::autotune::restoreCandidates(
-      lang::canonicalTc(tc), inputsPair.first, outputsPair.first);
+  return tc::autotune::restoreCandidates<CudaOptionsCache>(
+      lang::canonicalTc(tc),
+      inputsPair.first,
+      outputsPair.first,
+      CudaGPUInfo::GPUInfo().GetCudaDeviceStr());
 }
 
 TEST(RestoreCandidates, NoCache) {
@@ -82,8 +86,8 @@ def matmul(float(M,N) A, float(N,K) B) -> (output) {
 void EnableCaches() {
   tc::CudaCache::enableCache();
   tc::CudaCache::getCache()->clear();
-  tc::OptionsCache::enableCache();
-  tc::OptionsCache::getCache()->clear();
+  tc::CudaOptionsCache::enableCache();
+  tc::CudaOptionsCache::getCache()->clear();
 }
 
 TEST(RestoreCandidates, NoRuntimeRecorded) {
