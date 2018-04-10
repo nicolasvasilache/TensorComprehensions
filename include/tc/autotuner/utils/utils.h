@@ -41,25 +41,34 @@ Vector mergeVectors(Vector&& v, Vectors&&... vs);
 /// Caches generally take arbitrary strings for keys.
 /// The autotuner uses a canonicalized TC expression to load / store into
 /// caches. Add a layer of type safety to interact with these.
-std::vector<CudaMappingOptions> restoreCandidates(
+template <typename OptionsCacheType>
+std::vector<typename OptionsCacheType::MappingOptionsType> restoreCandidates(
     const lang::CanonicalTcString& tc,
     const std::vector<const DLTensor*>& inputs,
-    const std::vector<const DLTensor*>& outputs);
+    const std::vector<const DLTensor*>& outputs,
+    const std::string& deviceStr);
 
-llvm::Optional<CudaMappingOptions> getBestOptions(
+template <typename OptionsCacheType>
+llvm::Optional<typename OptionsCacheType::MappingOptionsType> getBestOptions(
     const lang::CanonicalTcString& id,
     const std::vector<const DLTensor*>& inputs,
-    const std::vector<const DLTensor*>& outputs);
+    const std::vector<const DLTensor*>& outputs,
+    const std::string& deviceStr);
 
+template <typename MappingOptionsType>
 struct OptionsWithMedianTime {
-  CudaMappingOptions options;
+  MappingOptionsType options;
   Duration medianRuntime;
 };
 
-std::vector<OptionsWithMedianTime> getOptionsAndMedianRuntimes(
+template <typename OptionsCacheType>
+std::vector<
+    OptionsWithMedianTime<typename OptionsCacheType::MappingOptionsType>>
+getOptionsAndMedianRuntimes(
     const lang::CanonicalTcString& id,
-    const std::vector<const DLTensor*>& inputs);
-
+    const std::vector<const DLTensor*>& inputs,
+    const std::vector<const DLTensor*>& outputs,
+    const std::string& deviceStr);
 } // namespace autotune
 } // namespace tc
 
