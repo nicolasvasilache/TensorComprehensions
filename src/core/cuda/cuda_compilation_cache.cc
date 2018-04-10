@@ -41,11 +41,6 @@ void WriteProtobufArray(const Array& arr, Buf* buf) {
 ////////////////////////////////////////////////////////////////////////////////
 // CudaCache
 ////////////////////////////////////////////////////////////////////////////////
-std::shared_ptr<CudaCache>& CudaCache::getGlobalSharedCache() {
-  static std::shared_ptr<CudaCache> cudaCache_;
-  return cudaCache_;
-}
-
 CudaCachedEntry::CudaCachedEntry(
     const std::string& id,
     const std::string& kernelSpecializedName,
@@ -195,11 +190,6 @@ CudaCacheEntryProto CudaCachedEntry::toProtobuf() const {
 ////////////////////////////////////////////////////////////////////////////////
 // ManualCudaCache
 ////////////////////////////////////////////////////////////////////////////////
-std::shared_ptr<ManualCudaCache>& ManualCudaCache::getGlobalSharedCache() {
-  static std::shared_ptr<ManualCudaCache> manualCudaCache_;
-  return manualCudaCache_;
-}
-
 ManualCudaCachedEntry::ManualCudaCachedEntry(
     const std::string& id,
     const std::string& kernelSpecializedName,

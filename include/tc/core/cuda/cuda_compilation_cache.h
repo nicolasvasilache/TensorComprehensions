@@ -104,7 +104,6 @@ using CudaOptionsCache = OptionsCache<OptionsCachedEntry<CudaMappingOptions>>;
 class CudaCache : public Cache<CudaCache, CudaCachedEntry> {
  public:
   typedef CudaCacheProto ProtobufType;
-  static std::shared_ptr<CudaCache>& getGlobalSharedCache();
 
   CudaCache() = default;
   CudaCache(const CudaCacheProto& buf);
@@ -189,7 +188,6 @@ class ManualCudaCache : public Cache<ManualCudaCache, ManualCudaCachedEntry> {
   using ProtobufType = ManualCudaCacheProto;
   using CachedEntry = ManualCudaCachedEntry;
   using RetrievalResult = ManualCudaCacheRetrievalResult;
-  static std::shared_ptr<ManualCudaCache>& getGlobalSharedCache();
 
   ManualCudaCache() = default;
   ManualCudaCache(const ManualCudaCacheProto& buf);
@@ -223,5 +221,3 @@ inline void removeFromCudaCacheEntriesNotInOptionsCache(
   cc.removeEntriesNotInOptionsCache(oc);
 }
 } // namespace tc
-
-#include "tc/core/cuda/cuda_compilation_cache-inl.h"

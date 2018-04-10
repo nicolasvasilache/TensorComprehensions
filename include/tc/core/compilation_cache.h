@@ -88,6 +88,8 @@ struct TensorInfo {
 template <typename CC, typename CachedEntryType>
 class Cache {
  public:
+  static std::shared_ptr<CC>& getGlobalSharedCache();
+
   static void enableCache();
   static void disableCache();
   static void dumpCacheToProtobuf(const std::string& filename);
@@ -192,7 +194,6 @@ class OptionsCache : public Cache<
   using CachedEntryType = OptionsCachedEntryType;
   using MappingOptionsType = typename CachedEntryType::MappingOptionsType;
   using RetrievalResult = OptionsCacheRetrievalResult<MappingOptionsType>;
-  static std::shared_ptr<OptionsCache>& getGlobalSharedCache();
 
   OptionsCache() = default;
   OptionsCache(const OptionsCacheProto& buf);
