@@ -132,66 +132,19 @@ class CudaCache : public Cache<CudaCache, CudaCachedEntry> {
 ////////////////////////////////////////////////////////////////////////////////
 // ManualCudaCache
 ////////////////////////////////////////////////////////////////////////////////
-/**
- * A CudaCache holds multiple CudaCachedEntry's.
- * Each CudaCachedEntry is split to two conceptual parts the key and the values.
- * The values are:
- *                 the specialized (wrt inputs) Cuda source code,
- *                 the Cuda block and grid dimensions
- * The key is:
- *                 the kernel/op's unique id (string),
- *                 the specialized input dimensions,
- *                 the target architecture (string),
- *                 tc's version (string),
- */
-struct ManualCudaCachedEntry {
-  ManualCudaCachedEntry(
-      const std::string& id,
-      const std::string& kernelSpecializedName,
-      const std::vector<int>& kernelParameters,
-      const Grid& grid,
-      const Block& block,
-      const std::vector<const DLTensor*>& inputs,
-      const std::vector<const DLTensor*>& outputs,
-      const std::string& cudaSource,
-      const std::string& deviceStr);
-
-  ManualCudaCachedEntry(const ManualCudaCacheEntryProto& buf);
-  ManualCudaCacheEntryProto toProtobuf() const;
-
-  struct Key {
-    std::string id;
-    std::vector<detail::TensorInfo> inputs;
-    std::vector<detail::TensorInfo> outputs;
-    std::string deviceStr;
-    std::string gitVersion;
-  };
-
-  struct Values {
-    std::string cudaSource;
-    std::string kernelSpecializedName;
-    std::vector<int> kernelParameters;
-    Grid grid;
-    Block block;
-  };
-  Key key;
-  Values values;
-};
-
-typedef CudaCacheRetrievalResult ManualCudaCacheRetrievalResult;
-
 /*
  * ManualCudaCache stores the manually injected source of Cuda kernels
+ * It is just a CUDA cache with an ignored CudaMappingOptions
  */
-class ManualCudaCache : public Cache<ManualCudaCache, ManualCudaCachedEntry> {
+class ManualCudaCache : public Cache<ManualCudaCache, CudaCachedEntry> {
  public:
   using ProtobufType = ManualCudaCacheProto;
-  using CachedEntry = ManualCudaCachedEntry;
-  using RetrievalResult = ManualCudaCacheRetrievalResult;
+  using CachedEntry = CudaCachedEntry;
+  using RetrievalResult = CudaCacheRetrievalResult;
 
   ManualCudaCache() = default;
-  ManualCudaCache(const ManualCudaCacheProto& buf);
-  ManualCudaCacheProto toProtobuf() const;
+  ManualCudaCache(const ProtobufType& buf);
+  ProtobufType toProtobuf() const;
 
   /*
    * Stores:
@@ -200,13 +153,9 @@ class ManualCudaCache : public Cache<ManualCudaCache, ManualCudaCachedEntry> {
    *   (id, input shapes, output shapes, target device).
    * If the key already exist in the cache, the values are replaced.
    */
-  void cacheKernel(ManualCudaCachedEntry&& entry);
+  void cacheKernel(CachedEntry&& entry);
 
-  /*
-   * Returns the cache entry that matches op(id, target device), input shapes
-   * and output shapes.
-   */
-  std::unique_ptr<ManualCudaCacheRetrievalResult> retrieveKernel(
+  std::unique_ptr<RetrievalResult> retrieveKernel(
       const std::string& id,
       const std::vector<const DLTensor*>& inputs,
       const std::vector<const DLTensor*>& outputs) const;

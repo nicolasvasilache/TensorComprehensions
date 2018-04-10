@@ -101,7 +101,7 @@ void CudaCache::cacheKernel(CudaCachedEntry&& entry) {
     }
     return;
   }
-  entries_.emplace_back(entry);
+  entries_.emplace_back(std::move(entry));
 }
 
 std::unique_ptr<CudaCacheRetrievalResult> CudaCache::retrieveKernel(
@@ -190,25 +190,7 @@ CudaCacheEntryProto CudaCachedEntry::toProtobuf() const {
 ////////////////////////////////////////////////////////////////////////////////
 // ManualCudaCache
 ////////////////////////////////////////////////////////////////////////////////
-ManualCudaCachedEntry::ManualCudaCachedEntry(
-    const std::string& id,
-    const std::string& kernelSpecializedName,
-    const std::vector<int>& kernelParameters,
-    const Grid& grid,
-    const Block& block,
-    const std::vector<const DLTensor*>& inputs,
-    const std::vector<const DLTensor*>& outputs,
-    const std::string& cudaSource,
-    const std::string& deviceStr)
-    : key{id,
-          DLTensorToTensorInfoVector(inputs),
-          DLTensorToTensorInfoVector(outputs),
-          deviceStr,
-          git_version},
-      values{cudaSource, kernelSpecializedName, kernelParameters, grid, block} {
-}
-
-void ManualCudaCache::cacheKernel(ManualCudaCachedEntry&& entry) {
+void ManualCudaCache::cacheKernel(CudaCachedEntry&& entry) {
   std::lock_guard<std::mutex> lock(mtx_);
   ++numberCacheAttemps;
   auto retrievedEntry = detail::searchKernel(
@@ -226,10 +208,10 @@ void ManualCudaCache::cacheKernel(ManualCudaCachedEntry&& entry) {
     retrievedEntry->values.kernelParameters = entry.values.kernelParameters;
     return;
   }
-  entries_.emplace_back(entry);
+  entries_.emplace_back(std::move(entry));
 }
 
-std::unique_ptr<ManualCudaCacheRetrievalResult> ManualCudaCache::retrieveKernel(
+std::unique_ptr<CudaCacheRetrievalResult> ManualCudaCache::retrieveKernel(
     const std::string& id,
     const std::vector<const DLTensor*>& inputs,
     const std::vector<const DLTensor*>& outputs) const {
@@ -241,11 +223,11 @@ std::unique_ptr<ManualCudaCacheRetrievalResult> ManualCudaCache::retrieveKernel(
     return nullptr;
   }
   ++numberSuccessfulRetrievals;
-  return std::unique_ptr<ManualCudaCacheRetrievalResult>(
-      new ManualCudaCacheRetrievalResult{entry->values.cudaSource,
-                                         entry->values.kernelSpecializedName,
-                                         entry->values.kernelParameters,
-                                         entry->values.grid,
-                                         entry->values.block});
+  return std::unique_ptr<RetrievalResult>(
+      new RetrievalResult{entry->values.cudaSource,
+                          entry->values.kernelSpecializedName,
+                          entry->values.kernelParameters,
+                          entry->values.grid,
+                          entry->values.block});
 }
 } // namespace tc

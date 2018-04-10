@@ -1630,12 +1630,14 @@ __global__ void add100(float* __restrict__ output, const float* __restrict__ A, 
   {
     std::vector<const DLTensor*> outputs{tensorsPair.first[0]};
 
-    tc::ManualCudaCache::getCache()->cacheKernel(tc::ManualCudaCachedEntry(
+    tc::ManualCudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
         "add",
         "add100",
         {},
         tc::Grid(std::vector<size_t>{1, 1, 1}),
         tc::Block(std::vector<size_t>{100, 1, 1}),
+        // options ignored in manual cache mode
+        tc::CudaMappingOptions::makeNaiveCudaMappingOptions(),
         tensorsPair.first,
         outputs,
         cudaSource,

@@ -126,17 +126,18 @@ PYBIND11_MODULE(tc, m) {
             tc::ScopeGuard g(
                 [&]() { tc::deleteDlmTensors(tensorsPair.second); });
             auto outTensorInfo = instance.inferOutputTensorInfo(name, atInputs);
-            tc::ManualCudaCache::getCache()->cacheKernel(
-                tc::ManualCudaCachedEntry(
-                    name,
-                    injectedKernelName,
-                    {},
-                    tc::Grid(grid),
-                    tc::Block(block),
-                    tensorsPair.first,
-                    outTensorInfo,
-                    cudaSource,
-                    tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
+            tc::ManualCudaCache::getCache()->cacheKernel(tc::CudaCachedEntry(
+                name,
+                injectedKernelName,
+                {},
+                tc::Grid(grid),
+                tc::Block(block),
+                // options is ignored in the manual cache mode
+                tc::CudaMappingOptions::makeNaiveCudaMappingOptions(),
+                tensorsPair.first,
+                outTensorInfo,
+                cudaSource,
+                tc::CudaGPUInfo::GPUInfo().GetCudaDeviceStr()));
           });
 }
 
