@@ -796,27 +796,27 @@ def group_norm(
 }
   )TC");
 
-  uint32_t N = 4, C = 8, G = 4, D = C / G, H = 6, W = 6;
+  uint32_t N = 32, C = 512, G = 32, D = C / G, H = 48, W = 48;
   at::Tensor I = at::CUDA(at::kFloat).rand({N, G, D, H, W});
   at::Tensor gamma = at::CUDA(at::kFloat).rand({G, D}).fill_(1.0f);
   at::Tensor beta = at::CUDA(at::kFloat).rand({G, D}).fill_(0.0f);
   std::vector<at::Tensor> inputs = {I, gamma, beta};
   auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .outerScheduleFusionStrategy(tc::FusionStrategy::Min)
-                     .outerScheduleAllowSkewing(false)
-                     .outerSchedulePositiveOrthant(true)
-                     .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
-                     .intraTileScheduleAllowSkewing(false)
-                     .intraTileSchedulePositiveOrthant(true)
-                     .tile(2, 6, 8, 48)
-                     .unroll(4)
-                     .tileImperfectlyNested(false)
-                     .matchLibraryCalls(true)
-                     .mapToThreads(6, 12)
-                     .mapToBlocks(8)
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unrollCopyShared(false);
+     .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+     .outerScheduleAllowSkewing(false)
+     .outerSchedulePositiveOrthant(true)
+     .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+     .intraTileScheduleAllowSkewing(false)
+     .intraTileSchedulePositiveOrthant(true)
+     .tile(1, 6)
+     .unroll(32)
+     .tileImperfectlyNested(false)
+     .matchLibraryCalls(true)
+     .mapToThreads(8, 4)
+     .mapToBlocks(64, 6, 48)
+     .useSharedMemory(true)
+     .usePrivateMemory(true)
+     .unrollCopyShared(true);
   auto pExecutor =
       tc::aten::compile<tc::CudaBackend>(TC, group_norm, inputs, options);
   auto outputs = tc::aten::prepareOutputs(TC, group_norm, inputs);
