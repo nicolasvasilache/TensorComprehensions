@@ -175,7 +175,7 @@ TEST_F(
       tc::options_GroupNormalization_P100_autotuned_N_4_C_512_G_32_H_12_W_12);
 }
 
-TEST_F(GroupNormalization, DISABLED_C2GroupNormalizationReference) {
+TEST_F(GroupNormalization, C2GroupNormalizationReference) {
   Init(FLAGS_N, FLAGS_C, FLAGS_G, FLAGS_H, FLAGS_W);
   runC2GroupNormalization();
 }
