@@ -29,6 +29,7 @@ set(BENCHMARKS
   moments
   tmm
   MLP_model
+  wavenet
 )
 foreach(i ${BENCHMARKS})
   add_executable(benchmark_${i} ${i}.cc)
