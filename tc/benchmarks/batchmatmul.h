@@ -36,4 +36,25 @@ auto options_TransposedBatchMatMul_P100_autotuned_B_500_K_26_M_72_N_26 =
         .usePrivateMemory(false)
         .unrollCopyShared(true)
         .matchLibraryCalls(true);
+
+auto options_TransposedBatchMatMul_V100_autotuned_B_500_K_26_M_72_N_26 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(1, 1, 32, 32)
+        .unroll(1)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(72)
+        .mapToBlocks(500)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
 } // namespace tc

@@ -19,24 +19,6 @@
 #include "tc/core/cuda/cuda_mapping_options.h"
 
 namespace tc {
-auto options_TransposedMatMul_P100_autotuned_M_128_N_1024_K_1024 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
-        .outerScheduleAllowSkewing(false)
-        .outerSchedulePositiveOrthant(true)
-        .intraTileScheduleFusionStrategy(
-            tc::FusionStrategy::Preserve3Coincident)
-        .intraTileScheduleAllowSkewing(false)
-        .intraTileSchedulePositiveOrthant(true)
-        .tile(1, 32)
-        .mapToThreads(64, 4)
-        .mapToBlocks(256, 32)
-        .unroll(256)
-        .tileImperfectlyNested(false)
-        .useSharedMemory(true)
-        .usePrivateMemory(false)
-        .unrollCopyShared(true)
-        .matchLibraryCalls(true);
 
 auto options_TransposedMatMul_P100_autotuned_M_128_N_256_K_32 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
@@ -57,6 +39,25 @@ auto options_TransposedMatMul_P100_autotuned_M_128_N_256_K_32 =
         .unrollCopyShared(false)
         .matchLibraryCalls(false);
 
+auto options_TransposedMatMul_P100_autotuned_M_128_N_1024_K_1024 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .tile(1, 32)
+        .mapToThreads(64, 4)
+        .mapToBlocks(256, 32)
+        .unroll(256)
+        .tileImperfectlyNested(false)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(true)
+        .matchLibraryCalls(true);
+
 auto options_TransposedMatMul_P100_autotuned_M_128_N_16384_K_4096 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
         .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
@@ -75,5 +76,67 @@ auto options_TransposedMatMul_P100_autotuned_M_128_N_16384_K_4096 =
         .usePrivateMemory(true)
         .unrollCopyShared(false)
         .matchLibraryCalls(false);
+
+auto options_TransposedMatMul_V100_autotuned_M_128_N_256_K_32 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(32, 32, 32)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(32, 32)
+        .mapToBlocks(4, 8)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
+
+auto options_TransposedMatMul_V100_autotuned_M_128_N_1024_K_1024 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(4, 32, 1024)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(32, 4, 2)
+        .mapToBlocks(1024, 512)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
+
+auto options_TransposedMatMul_V100_autotuned_M_128_N_16384_K_4096 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(32, 32, 32)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(32)
+        .mapToBlocks(4, 512)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
 
 } // namespace tc

@@ -61,7 +61,7 @@ def group_normalization(
 
 // These options were found by a longer tuning run on a Maxwell card.
 // More specifically: Tesla M40
-auto options_GroupNormalization_M40_autotuned_M_32_C_512_G_32_H_48_W_48 =
+auto options_GroupNormalization_M40_autotuned_N_32_C_512_G_32_H_48_W_48 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
         .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
         .outerScheduleAllowSkewing(false)
@@ -84,7 +84,7 @@ auto options_GroupNormalization_M40_autotuned_M_32_C_512_G_32_H_48_W_48 =
 
 // These options were found by a longer tuning run on a Pascal card.
 // More specifically: Quadro GP100
-auto options_GroupNormalization_P100_autotuned_M_32_C_512_G_32_H_48_W_48 =
+auto options_GroupNormalization_P100_autotuned_N_32_C_512_G_32_H_48_W_48 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
         .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
         .outerScheduleAllowSkewing(false)
@@ -105,7 +105,7 @@ auto options_GroupNormalization_P100_autotuned_M_32_C_512_G_32_H_48_W_48 =
 
 // These options were found by a longer tuning run on a Volta card.
 // More specifically: Tesla V100-SXM2-16GB.
-auto options_GroupNormalization_V100_autotuned_M_32_C_512_G_32_H_48_W_48 =
+auto options_GroupNormalization_V100_autotuned_N_32_C_512_G_32_H_48_W_48 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
         .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
         .outerScheduleAllowSkewing(false)
@@ -121,6 +121,28 @@ auto options_GroupNormalization_V100_autotuned_M_32_C_512_G_32_H_48_W_48 =
         .matchLibraryCalls(false)
         .mapToThreads(16, 16, 1)
         .mapToBlocks(32, 256, 1)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
+
+// These options were found by a longer tuning run on a Pascal card.
+// More specifically: Quadro GP100
+auto options_GroupNormalization_P100_autotuned_N_4_C_512_G_32_H_12_W_12 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(12, 1, 8, 64)
+        .unroll(4)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(12, 4, 6)
+        .mapToBlocks(1, 256, 128)
         .useSharedMemory(true)
         .usePrivateMemory(false)
         .unrollCopyShared(false)

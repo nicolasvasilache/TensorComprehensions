@@ -56,6 +56,8 @@ class BatchMatMul : public Benchmark {
     K = k;
   }
   void runBatchMatMul(const tc::CudaMappingOptions& options);
+  void runCaffe2BatchMatMul();
+  void runATenBatchMatMul();
 };
 
 void BatchMatMul::runBatchMatMul(const tc::CudaMappingOptions& options) {
@@ -100,6 +102,26 @@ def batch_matmul(float(B, N, M) X, float(B, M, K) Y) -> (Z) {
   Check(tc, "batch_matmul", bestOptions[0], inputs, check_fun);
 }
 
+void BatchMatMul::runCaffe2BatchMatMul() {
+  Workspace w_ref;
+  auto AddInput = AddDeterministicallyRandomInput<caffe2::CUDABackend, float>;
+  AddInput(w_ref, {B, N, M}, "X");
+  AddInput(w_ref, {B, M, K}, "Y");
+  OperatorDef ref_def =
+      MakeOperatorDef<caffe2::CUDABackend>("BatchMatMul", {"X", "Y"}, {"Z"});
+  std::unique_ptr<OperatorBase> net(CreateOperator(ref_def, &w_ref));
+  Reference([&]() { return true; }, [&](bool flag) { net->Run(); });
+}
+
+void BatchMatMul::runATenBatchMatMul() {
+  at::Tensor X = at::CUDA(at::kFloat).rand({B, N, M});
+  at::Tensor Y = at::CUDA(at::kFloat).rand({B, M, K});
+  Reference(
+      [&]() { return bmm(X, Y); },
+      [&](at::Tensor& res) { bmm_out(res, X, Y); });
+}
+
+// Generic
 TEST_F(BatchMatMul, TransposedBatchMatMul) {
   Init(FLAGS_B, FLAGS_N, FLAGS_M, FLAGS_K);
   auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
@@ -112,31 +134,42 @@ TEST_F(BatchMatMul, TransposedBatchMatMul) {
   runBatchMatMul(options);
 }
 
+// P100 TC
 TEST_F(BatchMatMul, TransposedBatchMatMul_P100_autotuned_B_500_K_26_M_72_N_26) {
   Init(500, 26, 72, 26);
   runBatchMatMul(
       tc::options_TransposedBatchMatMul_P100_autotuned_B_500_K_26_M_72_N_26);
 }
 
-TEST_F(BatchMatMul, ATenTransposedBatchMatMulReference) {
-  Init(FLAGS_B, FLAGS_N, FLAGS_M, FLAGS_K);
-  at::Tensor X = at::CUDA(at::kFloat).rand({B, N, M});
-  at::Tensor Y = at::CUDA(at::kFloat).rand({B, M, K});
-  Reference(
-      [&]() { return bmm(X, Y); },
-      [&](at::Tensor& res) { bmm_out(res, X, Y); });
+// P100 ATen
+TEST_F(BatchMatMul, TransposedBatchMatMul_ATen_P100_B_500_K_26_M_72_N_26) {
+  Init(500, 26, 72, 26);
+  runATenBatchMatMul();
 }
 
-TEST_F(BatchMatMul, C2TransposedBatchMatMulReference) {
-  Init(FLAGS_B, FLAGS_N, FLAGS_M, FLAGS_K);
-  Workspace w_ref;
-  auto AddInput = AddDeterministicallyRandomInput<caffe2::CUDABackend, float>;
-  AddInput(w_ref, {B, N, M}, "X");
-  AddInput(w_ref, {B, M, K}, "Y");
-  OperatorDef ref_def =
-      MakeOperatorDef<caffe2::CUDABackend>("BatchMatMul", {"X", "Y"}, {"Z"});
-  std::unique_ptr<OperatorBase> net(CreateOperator(ref_def, &w_ref));
-  Reference([&]() { return true; }, [&](bool flag) { net->Run(); });
+// P100 Caffe2
+TEST_F(BatchMatMul, TransposedBatchMatMul_Caffe2_P100_B_500_K_26_M_72_N_26) {
+  Init(500, 26, 72, 26);
+  runCaffe2BatchMatMul();
+}
+
+// V100 TC
+TEST_F(BatchMatMul, TransposedBatchMatMul_V100_autotuned_B_500_K_26_M_72_N_26) {
+  Init(500, 26, 72, 26);
+  runBatchMatMul(
+      tc::options_TransposedBatchMatMul_V100_autotuned_B_500_K_26_M_72_N_26);
+}
+
+// V100 ATen
+TEST_F(BatchMatMul, TransposedBatchMatMul_ATen_V100_B_500_K_26_M_72_N_26) {
+  Init(500, 26, 72, 26);
+  runATenBatchMatMul();
+}
+
+// V100 Caffe2
+TEST_F(BatchMatMul, TransposedBatchMatMul_Caffe2_V100_B_500_K_26_M_72_N_26) {
+  Init(500, 26, 72, 26);
+  runCaffe2BatchMatMul();
 }
 
 int main(int argc, char** argv) {

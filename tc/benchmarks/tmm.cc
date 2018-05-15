@@ -54,6 +54,8 @@ class TransposedMatMul : public Benchmark {
     K = k;
   }
   void runTransposedMatMul(const tc::CudaMappingOptions& options);
+  void runATenTransposedMatMul();
+  void runCaffe2TransposedMatMul();
 };
 
 void TransposedMatMul::runTransposedMatMul(
@@ -98,6 +100,30 @@ def tmm(float(M,K) A, float(N,K) B) -> (C) {
   Check(tc, "tmm", bestOptions[0], inputs, check_fun);
 }
 
+void TransposedMatMul::runATenTransposedMatMul() {
+  at::Tensor A = at::CUDA(at::kFloat).rand({M, K});
+  at::Tensor B = at::CUDA(at::kFloat).rand({N, K});
+  Reference(
+      [&]() { return at::mm(A, B.t()); },
+      [&](at::Tensor& res) { at::mm_out(res, A, B.t()); });
+}
+
+void TransposedMatMul::runCaffe2TransposedMatMul() {
+  auto ws_init_func = [&](Workspace& w) {
+    auto AddInput = AddDeterministicallyRandomInput<caffe2::CUDABackend, float>;
+    AddInput(w, {M, K}, "I");
+    AddInput(w, {N, K}, "W");
+  };
+  OperatorDef op_def =
+      MakeOperatorDef<caffe2::CUDABackend>("TcMatMulOp", {"I", "W"}, {"O"});
+  float precision = 0.0;
+  std::unique_ptr<OpTester> reference(new OpTester(op_def, precision));
+  reference->InitializeReference(ws_init_func, {{"trans_b", 1}});
+  Reference(
+      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
+}
+
+// Generic
 TEST_F(TransposedMatMul, TransposedMatMul) {
   Init(FLAGS_M, FLAGS_N, FLAGS_K);
   auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
@@ -111,16 +137,17 @@ TEST_F(TransposedMatMul, TransposedMatMul) {
   runTransposedMatMul(options);
 }
 
-TEST_F(TransposedMatMul, TransposedMatMul_P100_autotuned_M_128_N_1024_K_1024) {
-  Init(128, 1024, 1024);
-  runTransposedMatMul(
-      tc::options_TransposedMatMul_P100_autotuned_M_128_N_1024_K_1024);
-}
-
+// P100 TC
 TEST_F(TransposedMatMul, TransposedMatMul_P100_autotuned_M_128_N_256_K_32) {
   Init(128, 256, 32);
   runTransposedMatMul(
       tc::options_TransposedMatMul_P100_autotuned_M_128_N_256_K_32);
+}
+
+TEST_F(TransposedMatMul, TransposedMatMul_P100_autotuned_M_128_N_1024_K_1024) {
+  Init(128, 1024, 1024);
+  runTransposedMatMul(
+      tc::options_TransposedMatMul_P100_autotuned_M_128_N_1024_K_1024);
 }
 
 TEST_F(TransposedMatMul, TransposedMatMul_P100_autotuned_M_128_N_16384_K_4096) {
@@ -129,29 +156,111 @@ TEST_F(TransposedMatMul, TransposedMatMul_P100_autotuned_M_128_N_16384_K_4096) {
       tc::options_TransposedMatMul_P100_autotuned_M_128_N_16384_K_4096);
 }
 
-TEST_F(TransposedMatMul, ATenTransposedMatMulReference) {
-  Init(FLAGS_M, FLAGS_N, FLAGS_K);
-  at::Tensor A = at::CUDA(at::kFloat).rand({M, K});
-  at::Tensor B = at::CUDA(at::kFloat).rand({N, K});
-  Reference(
-      [&]() { return at::mm(A, B.t()); },
-      [&](at::Tensor& res) { at::mm_out(res, A, B.t()); });
+// P100 ATen
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_ATen_P100_autotuned_M_128_N_256_K_32) {
+  Init(128, 256, 32);
+  runATenTransposedMatMul();
 }
 
-TEST_F(TransposedMatMul, C2TransposedMatMulReference) {
-  Init(FLAGS_M, FLAGS_N, FLAGS_K);
-  auto ws_init_func = [&](Workspace& w) {
-    auto AddInput = AddDeterministicallyRandomInput<caffe2::CUDABackend, float>;
-    AddInput(w, {M, K}, "I");
-    AddInput(w, {N, K}, "W");
-  };
-  OperatorDef op_def =
-      MakeOperatorDef<caffe2::CUDABackend>("TcMatMulOp", {"I", "W"}, {"O"});
-  float precision = 0.0;
-  std::unique_ptr<OpTester> reference(new OpTester(op_def, precision));
-  reference->InitializeReference(ws_init_func, {{"trans_b", 1}});
-  Reference(
-      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_ATen_P100_autotuned_M_128_N_1024_K_1024) {
+  Init(128, 1024, 1024);
+  runATenTransposedMatMul();
+}
+
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_ATen_P100_autotuned_M_128_N_16384_K_4096) {
+  Init(128, 16384, 4096);
+  runATenTransposedMatMul();
+}
+
+// P100 Caffe2
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_Caffe2_P100_autotuned_M_128_N_256_K_32) {
+  Init(128, 256, 32);
+  runCaffe2TransposedMatMul();
+}
+
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_Caffe2_P100_autotuned_M_128_N_1024_K_1024) {
+  Init(128, 1024, 1024);
+  runCaffe2TransposedMatMul();
+}
+
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_Caffe2_P100_autotuned_M_128_N_16384_K_4096) {
+  Init(128, 16384, 4096);
+  runCaffe2TransposedMatMul();
+}
+
+// V100 TC
+TEST_F(TransposedMatMul, TransposedMatMul_V100_autotuned_M_128_N_256_K_32) {
+  Init(128, 256, 32);
+  runTransposedMatMul(
+      tc::options_TransposedMatMul_V100_autotuned_M_128_N_256_K_32);
+}
+
+TEST_F(TransposedMatMul, TransposedMatMul_V100_autotuned_M_128_N_1024_K_1024) {
+  Init(128, 1024, 1024);
+  runTransposedMatMul(
+      tc::options_TransposedMatMul_V100_autotuned_M_128_N_1024_K_1024);
+}
+
+TEST_F(TransposedMatMul, TransposedMatMul_V100_autotuned_M_128_N_16384_K_4096) {
+  Init(128, 16384, 4096);
+  runTransposedMatMul(
+      tc::options_TransposedMatMul_V100_autotuned_M_128_N_16384_K_4096);
+}
+
+// V100 ATen
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_ATen_V100_autotuned_M_128_N_256_K_32) {
+  Init(128, 256, 32);
+  runATenTransposedMatMul();
+}
+
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_ATen_V100_autotuned_M_128_N_1024_K_1024) {
+  Init(128, 1024, 1024);
+  runATenTransposedMatMul();
+}
+
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_ATen_V100_autotuned_M_128_N_16384_K_4096) {
+  Init(128, 16384, 4096);
+  runATenTransposedMatMul();
+}
+
+// V100 Caffe2
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_Caffe2_V100_autotuned_M_128_N_256_K_32) {
+  Init(128, 256, 32);
+  runCaffe2TransposedMatMul();
+}
+
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_Caffe2_V100_autotuned_M_128_N_1024_K_1024) {
+  Init(128, 1024, 1024);
+  runCaffe2TransposedMatMul();
+}
+
+TEST_F(
+    TransposedMatMul,
+    TransposedMatMul_Caffe2_V100_autotuned_M_128_N_16384_K_4096) {
+  Init(128, 16384, 4096);
+  runCaffe2TransposedMatMul();
 }
 
 int main(int argc, char** argv) {

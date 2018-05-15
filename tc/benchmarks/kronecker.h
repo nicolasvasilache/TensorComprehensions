@@ -147,62 +147,96 @@ constexpr static auto TC_Kronecker3_FULL = R"TC(
   }
 )TC";
 
-auto
-    options_Kronecker3_1_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
-        ::tc::CudaMappingOptions::makeNaiveMappingOptions()
-            .useSharedMemory(true)
-            .usePrivateMemory(false)
-            .unrollCopyShared(false)
-            .outerScheduleFusionStrategy(
-                tc::FusionStrategy::Preserve3Coincident)
-            .fixParametersBeforeScheduling(false)
-            .tile(8, 4, 32, 128)
-            .tileImperfectlyNested(false)
-            .mapToBlocks(128, 8)
-            .mapToThreads(32, 1)
-            .unroll(8);
-auto
-    options_Kronecker3_1_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64 =
-        ::tc::CudaMappingOptions::makeNaiveMappingOptions()
-            .useSharedMemory(true)
-            .usePrivateMemory(true)
-            .unrollCopyShared(false)
-            .outerScheduleFusionStrategy(
-                tc::FusionStrategy::Preserve3Coincident)
-            .fixParametersBeforeScheduling(true)
-            .tile(1, 2)
-            .tileImperfectlyNested(false)
-            .mapToBlocks(256, 64, 64)
-            .mapToThreads(16, 16)
-            .unroll(256);
+// P100
 auto
     options_Kronecker3_1_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
-        ::tc::CudaMappingOptions::makeNaiveMappingOptions()
-            .useSharedMemory(true)
-            .usePrivateMemory(true)
-            .unrollCopyShared(true)
-            .outerScheduleFusionStrategy(
-                tc::FusionStrategy::Preserve3Coincident)
-            .fixParametersBeforeScheduling(false)
-            .tile(2, 1)
-            .tileImperfectlyNested(false)
-            .mapToBlocks(128, 256, 1)
-            .mapToThreads(32, 4, 1)
-            .unroll(4);
-auto
-    options_Kronecker3_2_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
         tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(true)
+            .tile(1, 1, 16)
+            .unroll(8)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 4)
+            .mapToBlocks(256, 16, 8)
             .useSharedMemory(true)
             .usePrivateMemory(true)
             .unrollCopyShared(true)
+            .useReadOnlyCache(true);
+
+auto
+    options_Kronecker3_1_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(1, 1, 16, 64, 4)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(8, 16, 1)
+            .mapToBlocks(32, 128, 8)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(true);
+
+auto
+    options_Kronecker3_1_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
             .outerScheduleFusionStrategy(
                 tc::FusionStrategy::Preserve3Coincident)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
             .fixParametersBeforeScheduling(false)
-            .tile(1, 1)
+            .tile(4, 2)
+            .unroll(32)
             .tileImperfectlyNested(false)
-            .mapToBlocks(256, 64)
-            .mapToThreads(16, 16)
-            .unroll(256);
+            .matchLibraryCalls(false)
+            .mapToThreads(1, 32, 1)
+            .mapToBlocks(128, 16, 4)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(false)
+            .useReadOnlyCache(true);
+
+auto
+    options_Kronecker3_2_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(2)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 2, 8)
+            .mapToBlocks(128, 32)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(true);
+
+// TODO: RERUN ME!!!
 auto
     options_Kronecker3_2_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64 =
         tc::CudaMappingOptions::makeNaiveMappingOptions()
@@ -217,34 +251,44 @@ auto
             .mapToBlocks(256, 256)
             .mapToThreads(8, 16, 1)
             .unroll(256);
+
 auto
-    options_Kronecker3_2_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
+    options_Kronecker3_2_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
         tc::CudaMappingOptions::makeNaiveMappingOptions()
             .useSharedMemory(true)
             .usePrivateMemory(true)
-            .unrollCopyShared(false)
-            .outerScheduleFusionStrategy(
-                tc::FusionStrategy::Preserve3Coincident)
-            .fixParametersBeforeScheduling(false)
-            .tile(2, 1)
-            .tileImperfectlyNested(false)
-            .mapToBlocks(256, 128, 2)
-            .mapToThreads(16, 4)
-            .unroll(4);
-auto
-    options_Kronecker3_3_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
-        tc::CudaMappingOptions::makeNaiveMappingOptions()
-            .useSharedMemory(true)
-            .usePrivateMemory(false)
             .unrollCopyShared(true)
             .outerScheduleFusionStrategy(
                 tc::FusionStrategy::Preserve3Coincident)
             .fixParametersBeforeScheduling(false)
-            .tile(1, 8, 64, 128)
+            .tile(1, 1)
             .tileImperfectlyNested(false)
-            .mapToBlocks(256, 256, 16)
+            .mapToBlocks(256, 64)
             .mapToThreads(16, 16)
-            .unroll(128);
+            .unroll(256);
+
+auto
+    options_Kronecker3_3_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(true)
+            .tile(4, 16, 1)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 8)
+            .mapToBlocks(64, 32, 64)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(false);
+
 auto
     options_Kronecker3_3_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64 =
         tc::CudaMappingOptions::makeNaiveMappingOptions()
@@ -259,8 +303,9 @@ auto
             .mapToBlocks(256, 2)
             .mapToThreads(16, 16)
             .unroll(256);
+
 auto
-    options_Kronecker3_3_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
+    options_Kronecker3_3_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
         tc::CudaMappingOptions::makeNaiveMappingOptions()
             .useSharedMemory(true)
             .usePrivateMemory(false)
@@ -268,9 +313,213 @@ auto
             .outerScheduleFusionStrategy(
                 tc::FusionStrategy::Preserve3Coincident)
             .fixParametersBeforeScheduling(false)
-            .tile(1)
+            .tile(1, 8, 64, 128)
             .tileImperfectlyNested(false)
-            .mapToBlocks(128)
+            .mapToBlocks(256, 256, 16)
+            .mapToThreads(16, 16)
+            .unroll(128);
+
+// V100
+// TODO: RERUN ME
+auto
+    options_Kronecker3_1_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(true)
+            .tile(1, 1, 16)
+            .unroll(8)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 4)
+            .mapToBlocks(256, 16, 8)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(true);
+
+// TODO: RERUN ME
+auto
+    options_Kronecker3_1_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(1, 1, 16, 64, 4)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(8, 16, 1)
+            .mapToBlocks(32, 128, 8)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(true);
+
+// TODO: RERUN ME
+auto
+    options_Kronecker3_1_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(4, 2)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(1, 32, 1)
+            .mapToBlocks(128, 16, 4)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(false)
+            .useReadOnlyCache(true);
+
+// TODO: RERUN ME
+auto
+    options_Kronecker3_2_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(2)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 2, 8)
+            .mapToBlocks(128, 32)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(true);
+
+auto
+    options_Kronecker3_2_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(2)
+            .unroll(8)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 8, 2)
+            .mapToBlocks(256, 128)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(false)
+            .useReadOnlyCache(true);
+
+auto
+    options_Kronecker3_2_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(8, 1)
+            .unroll(16)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 4)
+            .mapToBlocks(128, 64, 128)
+            .useSharedMemory(true)
+            .usePrivateMemory(false)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(false);
+
+auto
+    options_Kronecker3_3_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(true)
+            .tile(2, 64, 64)
+            .unroll(8)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
             .mapToThreads(16, 16, 2)
-            .unroll(32);
+            .mapToBlocks(128)
+            .useSharedMemory(false)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(true);
+
+auto
+    options_Kronecker3_3_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(true)
+            .tile(1, 1)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 8)
+            .mapToBlocks(32, 16, 16)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(false);
+
+auto
+    options_Kronecker3_3_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(2, 256, 32, 0, 8)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(16, 16, 1)
+            .mapToBlocks(128, 8, 16)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(true)
+            .useReadOnlyCache(false);
+
 } // namespace tc

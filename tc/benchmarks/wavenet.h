@@ -161,26 +161,6 @@ def wavenet2(
 }
   )TC";
 
-auto options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_128_F_1 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
-        .outerScheduleAllowSkewing(false)
-        .outerSchedulePositiveOrthant(true)
-        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
-        .intraTileScheduleAllowSkewing(false)
-        .intraTileSchedulePositiveOrthant(true)
-        .fixParametersBeforeScheduling(true)
-        .tile(4, 32)
-        .unroll(4)
-        .tileImperfectlyNested(false)
-        .matchLibraryCalls(true)
-        .mapToThreads(4, 16)
-        .mapToBlocks(64, 8)
-        .useSharedMemory(false)
-        .usePrivateMemory(true)
-        .unrollCopyShared(true)
-        .useReadOnlyCache(false);
-
 auto options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
         .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
@@ -199,26 +179,6 @@ auto options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1 =
         .useSharedMemory(true)
         .usePrivateMemory(true)
         .unrollCopyShared(false)
-        .useReadOnlyCache(true);
-
-auto options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_512 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
-        .outerScheduleAllowSkewing(false)
-        .outerSchedulePositiveOrthant(true)
-        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
-        .intraTileScheduleAllowSkewing(false)
-        .intraTileSchedulePositiveOrthant(true)
-        .fixParametersBeforeScheduling(false)
-        .tile(128, 32)
-        .unroll(16)
-        .tileImperfectlyNested(false)
-        .matchLibraryCalls(false)
-        .mapToThreads(32, 8)
-        .mapToBlocks(2, 4000, 500)
-        .useSharedMemory(true)
-        .usePrivateMemory(true)
-        .unrollCopyShared(true)
         .useReadOnlyCache(true);
 
 auto options_WaveNet2_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1 =

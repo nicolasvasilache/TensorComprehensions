@@ -191,21 +191,10 @@ TEST_F(WaveNet, WaveNet1) {
   runWaveNet1(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
-TEST_F(WaveNet, WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_128_F_1) {
-  Init(1, 32, 32, 256, 128, 1);
-  runWaveNet1(tc::options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_128_F_1);
-}
-
 TEST_F(WaveNet, WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1) {
   Init(1, 32, 32, 256, 4000, 1);
   runWaveNet1(
       tc::options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1);
-}
-
-TEST_F(WaveNet, WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_512) {
-  Init(1, 32, 32, 256, 4000, 512);
-  runWaveNet1(
-      tc::options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_512);
 }
 
 // WaveNet 2 block
