@@ -89,13 +89,13 @@ void Moments2_2D_1D::autotuneAndCheck(
     bestOptions = autotune(
         FLAGS_save_tuner_proto_prefix + std::string("/moments_cache") + suffix,
         FLAGS_save_tuner_proto_prefix + std::string("/moments_best") + suffix,
-        tc::TC_Moments2_2D_1D,
+        tc::TC_Moments,
         entryPoint,
         inputs,
         options);
     CHECK_GE(bestOptions.size(), 1u);
   }
-  Check(tc::TC_Moments2_2D_1D, entryPoint, bestOptions[0], inputs, checkFun);
+  Check(tc::TC_Moments, entryPoint, bestOptions[0], inputs, checkFun);
 }
 
 void Moments2_2D_1D::runSum_2D_1D(const tc::CudaMappingOptions& options) {
@@ -163,15 +163,33 @@ void Moments2_2D_1D::runMoments2_2D_1D(const tc::CudaMappingOptions& options) {
   autotuneAndCheck(tc::TC_Moments2_2D_1D_NAME, inputs, options, check_fun);
 }
 
-// Autotunes and benchmarks sum
+/// Sum
+// Generic
 TEST_F(Moments2_2D_1D, Sum_2D_1D) {
   Init(FLAGS_N, FLAGS_K);
   runSum_2D_1D(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
+// P100
+TEST_F(Moments2_2D_1D, Sum_2D_1D_P100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  runSum_2D_1D(tc::options_Sum_2D_1D_P100_autotuned_N_128_K_2304);
+}
+
 TEST_F(Moments2_2D_1D, Sum_2D_1D_P100_autotuned_N_1024_K_36864) {
   Init(1024, 36864);
   runSum_2D_1D(tc::options_Sum_2D_1D_P100_autotuned_N_1024_K_36864);
+}
+
+// V100
+TEST_F(Moments2_2D_1D, Sum_2D_1D_V100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  // runSum_2D_1D(tc::options_Sum_2D_1D_V100_autotuned_N_128_K_2304);
+}
+
+TEST_F(Moments2_2D_1D, Sum_2D_1D_V100_autotuned_N_1024_K_36864) {
+  Init(1024, 36864);
+  // runSum_2D_1D(tc::options_Sum_2D_1D_V100_autotuned_N_1024_K_36864);
 }
 
 // Autotunes and benchmarks mean
@@ -180,9 +198,26 @@ TEST_F(Moments2_2D_1D, Mean_2D_1D) {
   runMean_2D_1D(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
+// P100
+TEST_F(Moments2_2D_1D, Mean_2D_1D_P100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  runMean_2D_1D(tc::options_Mean_2D_1D_P100_autotuned_N_128_K_2304);
+}
+
 TEST_F(Moments2_2D_1D, Mean_2D_1D_P100_autotuned_N_1024_K_36864) {
   Init(1024, 36864);
   runMean_2D_1D(tc::options_Mean_2D_1D_P100_autotuned_N_1024_K_36864);
+}
+
+// V100
+TEST_F(Moments2_2D_1D, Mean_2D_1D_V100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  // runMean_2D_1D(tc::options_Mean_2D_1D_V100_autotuned_N_128_K_2304);
+}
+
+TEST_F(Moments2_2D_1D, Mean_2D_1D_V100_autotuned_N_1024_K_36864) {
+  Init(1024, 36864);
+  // runMean_2D_1D(tc::options_Mean_2D_1D_V100_autotuned_N_1024_K_36864);
 }
 
 // Autotunes and benchmarks sum_squares
@@ -191,10 +226,30 @@ TEST_F(Moments2_2D_1D, Sum_Squares_2D_1D) {
   runSumSquares_2D_1D(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
+// P100
+TEST_F(Moments2_2D_1D, Sum_Squares_2D_1D_P100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  runSumSquares_2D_1D(
+      tc::options_Sum_Squares_2D_1D_P100_autotuned_N_128_K_2304);
+}
+
 TEST_F(Moments2_2D_1D, Sum_Squares_2D_1D_P100_autotuned_N_1024_K_36864) {
   Init(1024, 36864);
   runSumSquares_2D_1D(
       tc::options_Sum_Squares_2D_1D_P100_autotuned_N_1024_K_36864);
+}
+
+// V100
+TEST_F(Moments2_2D_1D, Sum_Squares_2D_1D_V100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  // runSumSquares_2D_1D(
+  //     tc::options_Sum_Squares_2D_1D_V100_autotuned_N_128_K_2304);
+}
+
+TEST_F(Moments2_2D_1D, Sum_Squares_2D_1D_V100_autotuned_N_1024_K_36864) {
+  Init(1024, 36864);
+  // runSumSquares_2D_1D(
+  //     tc::options_Sum_Squares_2D_1D_V100_autotuned_N_1024_K_36864);
 }
 
 // Autotunes and benchmarks var
@@ -203,9 +258,26 @@ TEST_F(Moments2_2D_1D, Var_2D_1D) {
   runVar_2D_1D(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
+// P100
+TEST_F(Moments2_2D_1D, Var_2D_1D_P100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  runVar_2D_1D(tc::options_Var_2D_1D_P100_autotuned_N_128_K_2304);
+}
+
 TEST_F(Moments2_2D_1D, Var_2D_1D_P100_autotuned_N_1024_K_36864) {
   Init(1024, 36864);
   runVar_2D_1D(tc::options_Var_2D_1D_P100_autotuned_N_1024_K_36864);
+}
+
+// V100
+TEST_F(Moments2_2D_1D, Var_2D_1D_V100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  // runVar_2D_1D(tc::options_Var_2D_1D_V100_autotuned_N_128_K_2304);
+}
+
+TEST_F(Moments2_2D_1D, Var_2D_1D_V100_autotuned_N_1024_K_36864) {
+  Init(1024, 36864);
+  // runVar_2D_1D(tc::options_Var_2D_1D_V100_autotuned_N_1024_K_36864);
 }
 
 // Autotunes and benchmarks sum_and_squares
@@ -214,10 +286,30 @@ TEST_F(Moments2_2D_1D, Sum_And_Squares_2D_1D) {
   runSumAndSquares_2D_1D(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
+// P100
+TEST_F(Moments2_2D_1D, Sum_And_Squares_2D_1D_P100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  runSumAndSquares_2D_1D(
+      tc::options_Sum_And_Squares_2D_1D_P100_autotuned_N_128_K_2304);
+}
+
 TEST_F(Moments2_2D_1D, Sum_And_Squares_2D_1D_P100_autotuned_N_1024_K_36864) {
   Init(1024, 36864);
   runSumAndSquares_2D_1D(
       tc::options_Sum_And_Squares_2D_1D_P100_autotuned_N_1024_K_36864);
+}
+
+// V100
+TEST_F(Moments2_2D_1D, Sum_And_Squares_2D_1D_V100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  // runSumAndSquares_2D_1D(
+  //     tc::options_Sum_And_Squares_2D_1D_V100_autotuned_N_128_K_2304);
+}
+
+TEST_F(Moments2_2D_1D, Sum_And_Squares_2D_1D_V100_autotuned_N_1024_K_36864) {
+  Init(1024, 36864);
+  // runSumAndSquares_2D_1D(
+  //     tc::options_Sum_And_Squares_2D_1D_V100_autotuned_N_1024_K_36864);
 }
 
 // Benchmarks 2 moments (mean and var)
@@ -226,9 +318,26 @@ TEST_F(Moments2_2D_1D, Moments2_2D_1D) {
   runMoments2_2D_1D(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
+// P100
+TEST_F(Moments2_2D_1D, Moments2_2D_1D_P100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  runMoments2_2D_1D(tc::options_Moments2_2D_1D_P100_autotuned_N_128_K_2304);
+}
+
 TEST_F(Moments2_2D_1D, Moments2_2D_1D_P100_autotuned_N_1024_K_36864) {
   Init(1024, 36864);
   runMoments2_2D_1D(tc::options_Moments2_2D_1D_P100_autotuned_N_1024_K_36864);
+}
+
+// V100
+TEST_F(Moments2_2D_1D, Moments2_2D_1D_V100_autotuned_N_128_K_2304) {
+  Init(128, 2304);
+  // runMoments2_2D_1D(tc::options_Moments2_2D_1D_V100_autotuned_N_128_K_2304);
+}
+
+TEST_F(Moments2_2D_1D, Moments2_2D_1D_V100_autotuned_N_1024_K_36864) {
+  Init(1024, 36864);
+  // runMoments2_2D_1D(tc::options_Moments2_2D_1D_V100_autotuned_N_1024_K_36864);
 }
 
 int main(int argc, char** argv) {

@@ -126,15 +126,7 @@ void TransposedMatMul::runCaffe2TransposedMatMul() {
 // Generic
 TEST_F(TransposedMatMul, TransposedMatMul) {
   Init(FLAGS_M, FLAGS_N, FLAGS_K);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .fixParametersBeforeScheduling(true)
-                     .tile(32, 32, 32)
-                     .mapToThreads({32, 32})
-                     .mapToBlocks({M / 32, N / 32})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unroll(256);
-  runTransposedMatMul(options);
+  runTransposedMatMul(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
 // P100 TC
@@ -157,45 +149,33 @@ TEST_F(TransposedMatMul, TransposedMatMul_P100_autotuned_M_128_N_16384_K_4096) {
 }
 
 // P100 ATen
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_ATen_P100_autotuned_M_128_N_256_K_32) {
+TEST_F(TransposedMatMul, TransposedMatMul_ATen_P100_M_128_N_256_K_32) {
   Init(128, 256, 32);
   runATenTransposedMatMul();
 }
 
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_ATen_P100_autotuned_M_128_N_1024_K_1024) {
+TEST_F(TransposedMatMul, TransposedMatMul_ATen_P100_M_128_N_1024_K_1024) {
   Init(128, 1024, 1024);
   runATenTransposedMatMul();
 }
 
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_ATen_P100_autotuned_M_128_N_16384_K_4096) {
+TEST_F(TransposedMatMul, TransposedMatMul_ATen_P100_M_128_N_16384_K_4096) {
   Init(128, 16384, 4096);
   runATenTransposedMatMul();
 }
 
 // P100 Caffe2
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_Caffe2_P100_autotuned_M_128_N_256_K_32) {
+TEST_F(TransposedMatMul, TransposedMatMul_Caffe2_P100_M_128_N_256_K_32) {
   Init(128, 256, 32);
   runCaffe2TransposedMatMul();
 }
 
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_Caffe2_P100_autotuned_M_128_N_1024_K_1024) {
+TEST_F(TransposedMatMul, TransposedMatMul_Caffe2_P100_M_128_N_1024_K_1024) {
   Init(128, 1024, 1024);
   runCaffe2TransposedMatMul();
 }
 
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_Caffe2_P100_autotuned_M_128_N_16384_K_4096) {
+TEST_F(TransposedMatMul, TransposedMatMul_Caffe2_P100_M_128_N_16384_K_4096) {
   Init(128, 16384, 4096);
   runCaffe2TransposedMatMul();
 }
@@ -220,45 +200,33 @@ TEST_F(TransposedMatMul, TransposedMatMul_V100_autotuned_M_128_N_16384_K_4096) {
 }
 
 // V100 ATen
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_ATen_V100_autotuned_M_128_N_256_K_32) {
+TEST_F(TransposedMatMul, TransposedMatMul_ATen_V100_M_128_N_256_K_32) {
   Init(128, 256, 32);
   runATenTransposedMatMul();
 }
 
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_ATen_V100_autotuned_M_128_N_1024_K_1024) {
+TEST_F(TransposedMatMul, TransposedMatMul_ATen_V100_M_128_N_1024_K_1024) {
   Init(128, 1024, 1024);
   runATenTransposedMatMul();
 }
 
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_ATen_V100_autotuned_M_128_N_16384_K_4096) {
+TEST_F(TransposedMatMul, TransposedMatMul_ATen_V100_M_128_N_16384_K_4096) {
   Init(128, 16384, 4096);
   runATenTransposedMatMul();
 }
 
 // V100 Caffe2
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_Caffe2_V100_autotuned_M_128_N_256_K_32) {
+TEST_F(TransposedMatMul, TransposedMatMul_Caffe2_V100_M_128_N_256_K_32) {
   Init(128, 256, 32);
   runCaffe2TransposedMatMul();
 }
 
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_Caffe2_V100_autotuned_M_128_N_1024_K_1024) {
+TEST_F(TransposedMatMul, TransposedMatMul_Caffe2_V100_M_128_N_1024_K_1024) {
   Init(128, 1024, 1024);
   runCaffe2TransposedMatMul();
 }
 
-TEST_F(
-    TransposedMatMul,
-    TransposedMatMul_Caffe2_V100_autotuned_M_128_N_16384_K_4096) {
+TEST_F(TransposedMatMul, TransposedMatMul_Caffe2_V100_M_128_N_16384_K_4096) {
   Init(128, 16384, 4096);
   runCaffe2TransposedMatMul();
 }

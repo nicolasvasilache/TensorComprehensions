@@ -179,10 +179,24 @@ class ProductionModel : public Benchmark {
   }
 
   void run1LUT(const tc::CudaMappingOptions& options);
+  void runCaffe21LUT();
+  void runATen1LUT();
+
   void run2LUT(const tc::CudaMappingOptions& options);
+  void runCaffe22LUT();
+  void runATen2LUT();
+
   void runC3(const tc::CudaMappingOptions& options);
+  void runCaffe2C3();
+  void runATenC3();
+
   void runMLP1(const tc::CudaMappingOptions& options);
+  void runCaffe2MLP1();
+  void runATenMLP1();
+
   void runMLP3(const tc::CudaMappingOptions& options);
+  void runCaffe2MLP3();
+  void runATenMLP3();
 };
 
 void ProductionModel::run1LUT(const tc::CudaMappingOptions& options) {
@@ -256,6 +270,27 @@ def _1LUT(float(E1, D) LUT1, int32(B, L1) I1) -> (O1) {
     }
     Check(tc, "_1LUT", options, inputs, check_fun);
   }
+}
+
+void ProductionModel::runCaffe21LUT() {
+  auto ws_init_func = [=](Workspace& w) {
+    AddDeterministicallyRandomInput<caffe2::CUDABackend, float>(
+        w, {E1, D}, "LUT");
+    detail::AddDeterministicallyRandomInputWithRange<caffe2::CUDABackend, int>(
+        w, {B, L1}, "I", 0, E1 - 1);
+    AddConstInput<caffe2::CUDABackend, int>(w, {B}, L1, "__lengths");
+  };
+  OperatorDef op_def =
+      MakeOperatorDef<caffe2::CUDABackend>("TcLUTOp", {"LUT", "I"}, {"O"});
+  std::unique_ptr<OpTester> reference(new OpTester(op_def));
+  reference->InitializeReference(ws_init_func);
+
+  Reference(
+      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
+}
+
+void ProductionModel::runATen1LUT() {
+  std::cout << "No ATen1LUTReference available\n";
 }
 
 void ProductionModel::run2LUT(const tc::CudaMappingOptions& options) {
@@ -356,6 +391,34 @@ def _2LUT(float(E1, D) LUT1, int32(B, L1) I1, float(E2, D) LUT2, int32(B, L2) I2
   }
 }
 
+void ProductionModel::runCaffe22LUT() {
+  auto ws_init_func = [=](Workspace& w) {
+    AddDeterministicallyRandomInput<caffe2::CUDABackend, float>(
+        w, {E1, D}, "LUT1");
+
+    detail::AddDeterministicallyRandomInputWithRange<caffe2::CUDABackend, int>(
+        w, {B, L1}, "IDX1", 0, E1 - 1);
+    AddDeterministicallyRandomInput<caffe2::CUDABackend, float>(
+        w, {E2, D}, "LUT2");
+
+    detail::AddDeterministicallyRandomInputWithRange<caffe2::CUDABackend, int>(
+        w, {B, L2}, "IDX2", 0, E2 - 1);
+    AddConstInput<caffe2::CUDABackend, int>(w, {B}, L1, "__lengths1");
+    AddConstInput<caffe2::CUDABackend, int>(w, {B}, L2, "__lengths2");
+  };
+  OperatorDef op_def = MakeOperatorDef<caffe2::CUDABackend>(
+      "Tc2LUTOp", {"LUT1", "IDX1", "LUT2", "IDX2"}, {"O1", "O2"});
+  std::unique_ptr<OpTester> reference(new OpTester(op_def));
+  reference->InitializeReference(ws_init_func);
+
+  Reference(
+      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
+}
+
+void ProductionModel::runATen2LUT() {
+  std::cout << "No ATen2LUTReference available\n";
+}
+
 void ProductionModel::runC3(const tc::CudaMappingOptions& options) {
   at::Tensor I = at::CUDA(at::kFloat).rand({B, WX});
   at::Tensor W = at::CUDA(at::kFloat).rand({WY, WX});
@@ -394,6 +457,28 @@ def _C3(float(B,WX) I, float(WY, WX) W) -> (C3) {
     CHECK_GE(bestOptions.size(), 1u);
   }
   Check(tc, "_C3", bestOptions[0], inputs, check_fun);
+}
+
+void ProductionModel::runCaffe2C3() {
+  auto ws_init_func = [&](Workspace& w) {
+    auto AddInput = AddDeterministicallyRandomInput<caffe2::CUDABackend, float>;
+    AddInput(w, {B, WX}, "I");
+    AddInput(w, {WY, WX}, "W");
+  };
+  OperatorDef op_def =
+      MakeOperatorDef<caffe2::CUDABackend>("TcMatMulOp", {"I", "W"}, {"O"});
+  std::unique_ptr<OpTester> reference(new OpTester(op_def));
+  reference->InitializeReference(ws_init_func, {{"trans_b", 1}});
+  Reference(
+      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
+}
+
+void ProductionModel::runATenC3() {
+  at::Tensor I = at::CUDA(at::kFloat).rand({B, WX});
+  at::Tensor W = at::CUDA(at::kFloat).rand({WY, WX});
+  Reference(
+      [&]() { return I.mm(W.t()); },
+      [&](at::Tensor& res) { mm_out(res, I, W.t()); });
 }
 
 void ProductionModel::runMLP1(const tc::CudaMappingOptions& options) {
@@ -437,6 +522,32 @@ def mlp1(float(B,M) I, float(M, N) W1, float(N) B1) -> (O1) {
     CHECK_GE(bestOptions.size(), 1u);
   }
   Check(tc, "mlp1", bestOptions[0], inputs, check_fun);
+}
+
+void ProductionModel::runCaffe2MLP1() {
+  auto ws_init_func = [&](Workspace& w) {
+    auto AddInput = AddDeterministicallyRandomInput<caffe2::CUDABackend, float>;
+    AddInput(w, {B, M}, "I");
+    AddInput(w, {N, M}, "W1");
+    AddInput(w, {N}, "B1");
+  };
+  OperatorDef op_def = MakeOperatorDef<caffe2::CUDABackend>(
+      "TcFCReluOp", {"I", "W1", "B1"}, {"O1"});
+  std::unique_ptr<OpTester> reference(new OpTester(op_def));
+  reference->InitializeReference(ws_init_func);
+
+  Reference(
+      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
+}
+
+void ProductionModel::runATenMLP1() {
+  at::Tensor I = at::CUDA(at::kFloat).rand({B, M});
+  at::Tensor W1 = at::CUDA(at::kFloat).rand({M, N});
+  at::Tensor B1 = at::CUDA(at::kFloat).rand({N});
+
+  Reference(
+      [&]() { return I.mm(W1).add(B1).clamp_min(0); },
+      [&](at::Tensor& res) { mm_out(res, I, W1).add(B1).clamp_min(0); });
 }
 
 void ProductionModel::runMLP3(const tc::CudaMappingOptions& options) {
@@ -496,137 +607,21 @@ def mlp3(float(B,N) I, float(O,N) W2, float(O) B2, float(P,O) W3, float(P) B3,
   Check(tc, "mlp3", bestOptions[0], inputs, check_fun);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Start tests
-///////////////////////////////////////////////////////////////////////////////
-/// 1LUT
-TEST_F(ProductionModel, 1LUT) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .tile(1, 32)
-                     .mapToThreads({1, 32})
-                     .mapToBlocks({128, 128})
-                     .unroll(256);
-  run1LUT(options);
-}
-
-TEST_F(ProductionModel, 1LUT_P100_autotuned_B_128_D_64_L1_50_E1_10000000) {
-  InitBDL1E1(128, 64, 50, 10000000);
-  run1LUT(tc::options_1LUT_P100_autotuned_B_128_D_64_L1_50_E1_10000000);
-}
-
-TEST_F(ProductionModel, C21LUTReference) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-
-  auto ws_init_func = [=](Workspace& w) {
-    AddDeterministicallyRandomInput<caffe2::CUDABackend, float>(
-        w, {E1, D}, "LUT");
-    detail::AddDeterministicallyRandomInputWithRange<caffe2::CUDABackend, int>(
-        w, {B, L1}, "I", 0, E1 - 1);
-    AddConstInput<caffe2::CUDABackend, int>(w, {B}, L1, "__lengths");
-  };
-  OperatorDef op_def =
-      MakeOperatorDef<caffe2::CUDABackend>("TcLUTOp", {"LUT", "I"}, {"O"});
-  std::unique_ptr<OpTester> reference(new OpTester(op_def));
-  reference->InitializeReference(ws_init_func);
-
-  Reference(
-      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
-}
-
-TEST_F(ProductionModel, ATen1LUTReference) {
-  std::cout << "No ATen1LUTReference available\n";
-}
-
-/// 2LUT
-TEST_F(ProductionModel, 2LUT) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .tile(1, 32)
-                     .mapToThreads({1, 32})
-                     .mapToBlocks({128, 128})
-                     .unroll(256);
-  run2LUT(options);
-}
-
-TEST_F(
-    ProductionModel,
-    2LUT_P100_autotuned_B_128_D_64_L1_50_E1_10000000_L2_50_E2_10000000) {
-  InitBDL1E1L2E2(128, 64, 50, 10000000, 50, 10000000);
-  run2LUT(
-      tc::options_2LUT_P100_autotuned_B_128_D_64_L1_50_E1_10000000_L2_50_E2_10000000);
-}
-
-TEST_F(ProductionModel, C22LUTReference) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  auto ws_init_func = [=](Workspace& w) {
-    AddDeterministicallyRandomInput<caffe2::CUDABackend, float>(
-        w, {E1, D}, "LUT1");
-
-    detail::AddDeterministicallyRandomInputWithRange<caffe2::CUDABackend, int>(
-        w, {B, L1}, "IDX1", 0, E1 - 1);
-    AddDeterministicallyRandomInput<caffe2::CUDABackend, float>(
-        w, {E2, D}, "LUT2");
-
-    detail::AddDeterministicallyRandomInputWithRange<caffe2::CUDABackend, int>(
-        w, {B, L2}, "IDX2", 0, E2 - 1);
-    AddConstInput<caffe2::CUDABackend, int>(w, {B}, L1, "__lengths1");
-    AddConstInput<caffe2::CUDABackend, int>(w, {B}, L2, "__lengths2");
+void ProductionModel::runCaffe2MLP3() {
+  auto AddInput = AddConstInput<caffe2::CUDABackend, float>;
+  auto ws_init_func = [&](Workspace& w) {
+    AddInput(w, vector<TIndex>{B, N}, 1., "I");
+    AddInput(w, vector<TIndex>{O, N}, 1., "W1");
+    AddInput(w, vector<TIndex>{O}, 1., "B1");
+    AddInput(w, vector<TIndex>{P, O}, 1., "W2");
+    AddInput(w, vector<TIndex>{P}, 1., "B2");
+    AddInput(w, vector<TIndex>{Q, P}, 1., "W3");
+    AddInput(w, vector<TIndex>{Q}, 1., "B3");
   };
   OperatorDef op_def = MakeOperatorDef<caffe2::CUDABackend>(
-      "Tc2LUTOp", {"LUT1", "IDX1", "LUT2", "IDX2"}, {"O1", "O2"});
+      "Tc3FCReluOp",
+      {"I", "W1", "B1", "W2", "B2", "W3", "B3"},
+      {"O1", "O2", "O3"});
   std::unique_ptr<OpTester> reference(new OpTester(op_def));
   reference->InitializeReference(ws_init_func);
 
@@ -634,225 +629,7 @@ TEST_F(ProductionModel, C22LUTReference) {
       [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
 }
 
-TEST_F(ProductionModel, ATen2LUTReference) {
-  std::cout << "No ATen2LUTReference available\n";
-}
-
-/// C3
-TEST_F(ProductionModel, C3) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .fixParametersBeforeScheduling(true)
-                     .tile(32, 32, 32)
-                     .mapToThreads({4, 32})
-                     .mapToBlocks({128, 128})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unroll(128);
-  runC3(options);
-}
-
-TEST_F(ProductionModel, C3_P100_autotuned_B_128_WX_1000_WY_1024) {
-  InitBWXWY(128, 1000, 1024);
-  runC3(tc::options_C3_P100_autotuned_B_128_WX_1000_WY_1024);
-}
-
-TEST_F(ProductionModel, ATenC3Reference) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  at::Tensor I = at::CUDA(at::kFloat).rand({B, WX});
-  at::Tensor W = at::CUDA(at::kFloat).rand({WY, WX});
-  Reference(
-      [&]() { return I.mm(W.t()); },
-      [&](at::Tensor& res) { mm_out(res, I, W.t()); });
-}
-
-TEST_F(ProductionModel, C2C3Reference) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  auto ws_init_func = [&](Workspace& w) {
-    auto AddInput = AddDeterministicallyRandomInput<caffe2::CUDABackend, float>;
-    AddInput(w, {B, WX}, "I");
-    AddInput(w, {WY, WX}, "W");
-  };
-  OperatorDef op_def =
-      MakeOperatorDef<caffe2::CUDABackend>("TcMatMulOp", {"I", "W"}, {"O"});
-  std::unique_ptr<OpTester> reference(new OpTester(op_def));
-  reference->InitializeReference(ws_init_func, {{"trans_b", 1}});
-  Reference(
-      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
-}
-
-// MLP1
-TEST_F(ProductionModel, MLP1) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .fixParametersBeforeScheduling(true)
-                     .tile(16, 16, 128)
-                     .mapToThreads({16, 16})
-                     .mapToBlocks({32, 32})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unroll(1);
-  runMLP1(options);
-}
-
-TEST_F(ProductionModel, MLP1_P100_autotuned_B_128_M_2000_N_128) {
-  InitBMN(128, 2000, 128);
-  runMLP1(tc::options_MLP1_P100_autotuned_B_128_M_2000_N_128);
-}
-
-TEST_F(ProductionModel, ATenMLP1Reference) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  at::Tensor I = at::CUDA(at::kFloat).rand({B, M});
-  at::Tensor W1 = at::CUDA(at::kFloat).rand({M, N});
-  at::Tensor B1 = at::CUDA(at::kFloat).rand({N});
-
-  Reference(
-      [&]() { return I.mm(W1).add(B1).clamp_min(0); },
-      [&](at::Tensor& res) { mm_out(res, I, W1).add(B1).clamp_min(0); });
-}
-
-TEST_F(ProductionModel, C2MLP1Reference) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  auto ws_init_func = [&](Workspace& w) {
-    auto AddInput = AddDeterministicallyRandomInput<caffe2::CUDABackend, float>;
-    AddInput(w, {B, M}, "I");
-    AddInput(w, {N, M}, "W1");
-    AddInput(w, {N}, "B1");
-  };
-  OperatorDef op_def = MakeOperatorDef<caffe2::CUDABackend>(
-      "TcFCReluOp", {"I", "W1", "B1"}, {"O1"});
-  std::unique_ptr<OpTester> reference(new OpTester(op_def));
-  reference->InitializeReference(ws_init_func);
-
-  Reference(
-      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
-}
-
-/// MLP3
-TEST_F(ProductionModel, MLP3) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .fixParametersBeforeScheduling(true)
-                     .tile(16, 16, 128)
-                     .mapToThreads({16, 16})
-                     .mapToBlocks({32, 32})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unroll(1);
-  runMLP3(options);
-}
-
-TEST_F(ProductionModel, MLP3_P100_autotuned_B_128_N_128_O_64_P_32_Q_2) {
-  InitBNOPQ(128, 128, 64, 32, 2);
-  runMLP3(tc::options_MLP3_P100_autotuned_B_128_N_128_O_64_P_32_Q_2);
-}
-
-TEST_F(ProductionModel, ATenMLP3Reference) {
-  InitAll(
-      FLAGS_B,
-      FLAGS_M,
-      FLAGS_N,
-      FLAGS_O,
-      FLAGS_P,
-      FLAGS_Q,
-      FLAGS_D,
-      FLAGS_L1,
-      FLAGS_L2,
-      FLAGS_E1,
-      FLAGS_E2,
-      FLAGS_WX,
-      FLAGS_WY);
+void ProductionModel::runATenMLP3() {
   at::Tensor I = at::CUDA(at::kFloat).rand({B, N});
   at::Tensor W2 = at::CUDA(at::kFloat).rand({O, N});
   at::Tensor B2 = at::CUDA(at::kFloat).rand({O});
@@ -878,7 +655,12 @@ TEST_F(ProductionModel, ATenMLP3Reference) {
       });
 }
 
-TEST_F(ProductionModel, C2MLP3Reference) {
+///////////////////////////////////////////////////////////////////////////////
+// Start tests
+///////////////////////////////////////////////////////////////////////////////
+/// 1LUT
+// Generic
+TEST_F(ProductionModel, 1LUT) {
   InitAll(
       FLAGS_B,
       FLAGS_M,
@@ -893,25 +675,273 @@ TEST_F(ProductionModel, C2MLP3Reference) {
       FLAGS_E2,
       FLAGS_WX,
       FLAGS_WY);
-  auto AddInput = AddConstInput<caffe2::CUDABackend, float>;
-  auto ws_init_func = [&](Workspace& w) {
-    AddInput(w, vector<TIndex>{B, N}, 1., "I");
-    AddInput(w, vector<TIndex>{O, N}, 1., "W1");
-    AddInput(w, vector<TIndex>{O}, 1., "B1");
-    AddInput(w, vector<TIndex>{P, O}, 1., "W2");
-    AddInput(w, vector<TIndex>{P}, 1., "B2");
-    AddInput(w, vector<TIndex>{Q, P}, 1., "W3");
-    AddInput(w, vector<TIndex>{Q}, 1., "B3");
-  };
-  OperatorDef op_def = MakeOperatorDef<caffe2::CUDABackend>(
-      "Tc3FCReluOp",
-      {"I", "W1", "B1", "W2", "B2", "W3", "B3"},
-      {"O1", "O2", "O3"});
-  std::unique_ptr<OpTester> reference(new OpTester(op_def));
-  reference->InitializeReference(ws_init_func);
+  run1LUT(tc::CudaMappingOptions::makeNaiveMappingOptions());
+}
 
-  Reference(
-      [&]() { return true; }, [&](bool flag) { reference->RunReference(); });
+// P100 TC
+TEST_F(ProductionModel, 1LUT_P100_autotuned_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1(128, 64, 50, 10000000);
+  run1LUT(tc::options_1LUT_P100_autotuned_B_128_D_64_L1_50_E1_10000000);
+}
+
+// P100 Caffe2
+TEST_F(ProductionModel, 1LUT_Caffe2_P100_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1(128, 64, 50, 10000000);
+  runCaffe21LUT();
+}
+
+// P100 ATen
+TEST_F(ProductionModel, 1LUT_ATen_P100_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1(128, 64, 50, 10000000);
+  runATen1LUT();
+}
+
+// V100 TC
+TEST_F(ProductionModel, 1LUT_V100_autotuned_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1(128, 64, 50, 10000000);
+  run1LUT(tc::options_1LUT_V100_autotuned_B_128_D_64_L1_50_E1_10000000);
+}
+
+// V100 Caffe2
+TEST_F(ProductionModel, 1LUT_Caffe2_V100_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1(128, 64, 50, 10000000);
+  runCaffe21LUT();
+}
+
+// V100 ATen
+TEST_F(ProductionModel, 1LUT_ATen_V100_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1(128, 64, 50, 10000000);
+  runATen1LUT();
+}
+
+/// 2LUT
+// Generic
+TEST_F(ProductionModel, 2LUT) {
+  InitAll(
+      FLAGS_B,
+      FLAGS_M,
+      FLAGS_N,
+      FLAGS_O,
+      FLAGS_P,
+      FLAGS_Q,
+      FLAGS_D,
+      FLAGS_L1,
+      FLAGS_L2,
+      FLAGS_E1,
+      FLAGS_E2,
+      FLAGS_WX,
+      FLAGS_WY);
+  run2LUT(tc::CudaMappingOptions::makeNaiveMappingOptions());
+}
+
+// P100 TC
+TEST_F(
+    ProductionModel,
+    2LUT_P100_autotuned_B_128_D_64_L1_50_E1_10000000_L2_50_E2_10000000) {
+  InitBDL1E1L2E2(128, 64, 50, 10000000, 50, 10000000);
+  run2LUT(
+      tc::options_2LUT_P100_autotuned_B_128_D_64_L1_50_E1_10000000_L2_50_E2_10000000);
+}
+
+// P100 Caffe2
+TEST_F(ProductionModel, 2LUT_Caffe2_P100_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1L2E2(128, 64, 50, 10000000, 50, 10000000);
+  runCaffe22LUT();
+}
+
+// P100 ATen
+TEST_F(ProductionModel, 2LUT_ATen_P100_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1L2E2(128, 64, 50, 10000000, 50, 10000000);
+  runATen2LUT();
+}
+
+// V100 TC
+TEST_F(
+    ProductionModel,
+    2LUT_V100_autotuned_B_128_D_64_L1_50_E1_10000000_L2_50_E2_10000000) {
+  InitBDL1E1L2E2(128, 64, 50, 10000000, 50, 10000000);
+  run2LUT(
+      tc::options_2LUT_V100_autotuned_B_128_D_64_L1_50_E1_10000000_L2_50_E2_10000000);
+}
+
+// V100 Caffe2
+TEST_F(ProductionModel, 2LUT_Caffe2_V100_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1L2E2(128, 64, 50, 10000000, 50, 10000000);
+  runCaffe22LUT();
+}
+
+// V100 ATen
+TEST_F(ProductionModel, 2LUT_ATen_V100_B_128_D_64_L1_50_E1_10000000) {
+  InitBDL1E1L2E2(128, 64, 50, 10000000, 50, 10000000);
+  runATen2LUT();
+}
+
+/// C3
+// Generic
+TEST_F(ProductionModel, C3) {
+  InitAll(
+      FLAGS_B,
+      FLAGS_M,
+      FLAGS_N,
+      FLAGS_O,
+      FLAGS_P,
+      FLAGS_Q,
+      FLAGS_D,
+      FLAGS_L1,
+      FLAGS_L2,
+      FLAGS_E1,
+      FLAGS_E2,
+      FLAGS_WX,
+      FLAGS_WY);
+  runC3(tc::CudaMappingOptions::makeNaiveMappingOptions());
+}
+
+// P100 TC
+TEST_F(ProductionModel, C3_P100_autotuned_B_128_WX_1000_WY_1024) {
+  InitBWXWY(128, 1000, 1024);
+  runC3(tc::options_C3_P100_autotuned_B_128_WX_1000_WY_1024);
+}
+
+// P100 Caffe2
+TEST_F(ProductionModel, C3_Caffe2_P100_B_128_WX_1000_WY_1024) {
+  InitBWXWY(128, 1000, 1024);
+  runCaffe2C3();
+}
+
+// P100 ATen
+TEST_F(ProductionModel, C3_ATen_P100_B_128_WX_1000_WY_1024) {
+  InitBWXWY(128, 1000, 1024);
+  runATenC3();
+}
+
+// V100 TC
+TEST_F(ProductionModel, C3_V100_autotuned_B_128_WX_1000_WY_1024) {
+  InitBWXWY(128, 1000, 1024);
+  runC3(tc::options_C3_V100_autotuned_B_128_WX_1000_WY_1024);
+}
+
+// V100 Caffe2
+TEST_F(ProductionModel, C3_Caffe2_V100_B_128_WX_1000_WY_1024) {
+  InitBWXWY(128, 1000, 1024);
+  runCaffe2C3();
+}
+
+// V100 ATen
+TEST_F(ProductionModel, C3_ATen_V100_B_128_WX_1000_WY_1024) {
+  InitBWXWY(128, 1000, 1024);
+  runATenC3();
+}
+
+/// MLP1
+// Generic
+TEST_F(ProductionModel, MLP1) {
+  InitAll(
+      FLAGS_B,
+      FLAGS_M,
+      FLAGS_N,
+      FLAGS_O,
+      FLAGS_P,
+      FLAGS_Q,
+      FLAGS_D,
+      FLAGS_L1,
+      FLAGS_L2,
+      FLAGS_E1,
+      FLAGS_E2,
+      FLAGS_WX,
+      FLAGS_WY);
+  runMLP1(tc::CudaMappingOptions::makeNaiveMappingOptions());
+}
+
+// P100 TC
+TEST_F(ProductionModel, MLP1_P100_autotuned_B_128_M_2000_N_128) {
+  InitBMN(128, 2000, 128);
+  runMLP1(tc::options_MLP1_P100_autotuned_B_128_M_2000_N_128);
+}
+
+// P100 Caffe2
+TEST_F(ProductionModel, MLP1_Caffe2_P100_B_128_M_2000_N_128) {
+  InitBMN(128, 2000, 128);
+  runCaffe2MLP1();
+}
+
+// P100 ATen
+TEST_F(ProductionModel, MLP1_ATen_P100_B_128_M_2000_N_128) {
+  InitBMN(128, 2000, 128);
+  runATenMLP1();
+}
+
+// V100 TC
+TEST_F(ProductionModel, MLP1_V100_autotuned_B_128_M_2000_N_128) {
+  InitBMN(128, 2000, 128);
+  runMLP1(tc::options_MLP1_V100_autotuned_B_128_M_2000_N_128);
+}
+
+// V100 Caffe2
+TEST_F(ProductionModel, MLP1_Caffe2_V100_B_128_M_2000_N_128) {
+  InitBMN(128, 2000, 128);
+  runCaffe2MLP1();
+}
+
+// V100 ATen
+TEST_F(ProductionModel, MLP1_ATen_V100_B_128_M_2000_N_128) {
+  InitBMN(128, 2000, 128);
+  runATenMLP1();
+}
+
+/// MLP3
+// Generic
+TEST_F(ProductionModel, MLP3) {
+  InitAll(
+      FLAGS_B,
+      FLAGS_M,
+      FLAGS_N,
+      FLAGS_O,
+      FLAGS_P,
+      FLAGS_Q,
+      FLAGS_D,
+      FLAGS_L1,
+      FLAGS_L2,
+      FLAGS_E1,
+      FLAGS_E2,
+      FLAGS_WX,
+      FLAGS_WY);
+  runMLP3(tc::CudaMappingOptions::makeNaiveMappingOptions());
+}
+
+// P100 TC
+TEST_F(ProductionModel, MLP3_P100_autotuned_B_128_N_128_O_64_P_32_Q_2) {
+  InitBNOPQ(128, 128, 64, 32, 2);
+  runMLP3(tc::options_MLP3_P100_autotuned_B_128_N_128_O_64_P_32_Q_2);
+}
+
+// P100 Caffe2
+TEST_F(ProductionModel, MLP3_Caffe2_P100_B_128_N_128_O_64_P_32_Q_2) {
+  InitBNOPQ(128, 128, 64, 32, 2);
+  runCaffe2MLP3();
+}
+
+// P100 ATen
+TEST_F(ProductionModel, MLP3_ATen_P100_B_128_N_128_O_64_P_32_Q_2) {
+  InitBNOPQ(128, 128, 64, 32, 2);
+  runATenMLP3();
+}
+
+// V100 TC
+TEST_F(ProductionModel, MLP3_V100_autotuned_B_128_N_128_O_64_P_32_Q_2) {
+  InitBNOPQ(128, 128, 64, 32, 2);
+  runMLP3(tc::options_MLP3_V100_autotuned_B_128_N_128_O_64_P_32_Q_2);
+}
+
+// V100 Caffe2
+TEST_F(ProductionModel, MLP3_Caffe2_V100_B_128_N_128_O_64_P_32_Q_2) {
+  InitBNOPQ(128, 128, 64, 32, 2);
+  runCaffe2MLP3();
+}
+
+// V100 ATen
+TEST_F(ProductionModel, MLP3_ATen_V100_B_128_N_128_O_64_P_32_Q_2) {
+  InitBNOPQ(128, 128, 64, 32, 2);
+  runATenMLP3();
 }
 
 int main(int argc, char** argv) {

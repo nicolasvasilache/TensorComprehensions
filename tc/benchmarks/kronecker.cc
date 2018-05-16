@@ -303,38 +303,17 @@ void Kronecker::checkKronecker3Full(
 // Generic
 TEST_F(Kronecker, Kronecker3_1) {
   init(FLAGS_M, FLAGS_D0, FLAGS_D1, FLAGS_D2, FLAGS_N0, FLAGS_N1, FLAGS_N2);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .tile(1, 1, 16, 32, 8)
-                     .mapToThreads({32, 16})
-                     .mapToBlocks({64, 16})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unroll(128);
-  runKronecker3_1(options);
+  runKronecker3_1(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
 TEST_F(Kronecker, Kronecker3_2) {
   init(FLAGS_M, FLAGS_D0, FLAGS_D1, FLAGS_D2, FLAGS_N0, FLAGS_N1, FLAGS_N2);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .tile(4, 1, 1, 8, 16)
-                     .mapToThreads({8, 4, 8})
-                     .mapToBlocks({64, 16, 16})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unroll(128);
-  runKronecker3_2(options);
+  runKronecker3_2(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
 TEST_F(Kronecker, Kronecker3_3) {
   init(FLAGS_M, FLAGS_D0, FLAGS_D1, FLAGS_D2, FLAGS_N0, FLAGS_N1, FLAGS_N2);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .tile(4, 1, 1, 8, 16)
-                     .mapToThreads({8, 4, 8})
-                     .mapToBlocks({64, 16, 16})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unroll(128);
-  runKronecker3_3(options);
+  runKronecker3_3(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
 // P100 TC
@@ -413,21 +392,21 @@ TEST_F(
 // P100 ATen
 TEST_F(
     Kronecker,
-    Kronecker3_ATenAsMatMul_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32) {
+    Kronecker3_ATenAsMatMul_P100_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32) {
   init(256, 16, 16, 16, 32, 32, 32);
   runATenKroneckerAsMatMul();
 }
 
 TEST_F(
     Kronecker,
-    Kronecker3_ATenAsMatMul_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64) {
+    Kronecker3_ATenAsMatMul_P100_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64) {
   init(256, 16, 16, 16, 64, 64, 64);
   runATenKroneckerAsMatMul();
 }
 
 TEST_F(
     Kronecker,
-    Kronecker3_ATenAsMatMul_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128) {
+    Kronecker3_ATenAsMatMul_P100_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128) {
   init(256, 16, 16, 16, 64, 128, 128);
   runATenKroneckerAsMatMul();
 }
@@ -435,21 +414,21 @@ TEST_F(
 // P100 Caffe2
 TEST_F(
     Kronecker,
-    Kronecker3_Caffe2AsMatMul_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32) {
+    Kronecker3_Caffe2AsMatMul_P100_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32) {
   init(256, 16, 16, 16, 32, 32, 32);
   runCaffe2KroneckerAsMatMul();
 }
 
 TEST_F(
     Kronecker,
-    Kronecker3_Caffe2AsMatMul_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64) {
+    Kronecker3_Caffe2AsMatMul_P100_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64) {
   init(256, 16, 16, 16, 64, 64, 64);
   runCaffe2KroneckerAsMatMul();
 }
 
 TEST_F(
     Kronecker,
-    Kronecker3_Caffe2AsMatMul_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128) {
+    Kronecker3_Caffe2AsMatMul_P100_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128) {
   init(256, 16, 16, 16, 64, 128, 128);
   runCaffe2KroneckerAsMatMul();
 }
@@ -530,21 +509,21 @@ TEST_F(
 // V100 ATen
 TEST_F(
     Kronecker,
-    Kronecker3_ATenAsMatMul_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32) {
+    Kronecker3_ATenAsMatMul_V100_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32) {
   init(256, 16, 16, 16, 32, 32, 32);
   runATenKroneckerAsMatMul();
 }
 
 TEST_F(
     Kronecker,
-    Kronecker3_ATenAsMatMul_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64) {
+    Kronecker3_ATenAsMatMul_V100_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64) {
   init(256, 16, 16, 16, 64, 64, 64);
   runATenKroneckerAsMatMul();
 }
 
 TEST_F(
     Kronecker,
-    Kronecker3_ATenAsMatMul_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128) {
+    Kronecker3_ATenAsMatMul_V100_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128) {
   init(256, 16, 16, 16, 64, 128, 128);
   runATenKroneckerAsMatMul();
 }
@@ -552,21 +531,21 @@ TEST_F(
 // V100 Caffe2
 TEST_F(
     Kronecker,
-    Kronecker3_Caffe2AsMatMul_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32) {
+    Kronecker3_Caffe2AsMatMul_V100_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32) {
   init(256, 16, 16, 16, 32, 32, 32);
   runCaffe2KroneckerAsMatMul();
 }
 
 TEST_F(
     Kronecker,
-    Kronecker3_Caffe2AsMatMul_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64) {
+    Kronecker3_Caffe2AsMatMul_V100_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64) {
   init(256, 16, 16, 16, 64, 64, 64);
   runCaffe2KroneckerAsMatMul();
 }
 
 TEST_F(
     Kronecker,
-    Kronecker3_Caffe2AsMatMul_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128) {
+    Kronecker3_Caffe2AsMatMul_V100_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128) {
   init(256, 16, 16, 16, 64, 128, 128);
   runCaffe2KroneckerAsMatMul();
 }

@@ -168,10 +168,10 @@ void WaveNet::runWaveNet2(const tc::CudaMappingOptions& options) {
   std::vector<tc::CudaMappingOptions> bestOptions{options};
   if (FLAGS_autotune) {
     bestOptions = autotune(
-        FLAGS_save_tuner_proto_prefix + std::string("/wavenet_1_cache"),
-        FLAGS_save_tuner_proto_prefix + std::string("/wavenet_1_best"),
+        FLAGS_save_tuner_proto_prefix + std::string("/wavenet_2_cache"),
+        FLAGS_save_tuner_proto_prefix + std::string("/wavenet_2_best"),
         tc::TC_WAVENET,
-        tc::TC_WAVENET1_NAME,
+        tc::TC_WAVENET2_NAME,
         inputs,
         options);
     CHECK_GE(bestOptions.size(), 1u);

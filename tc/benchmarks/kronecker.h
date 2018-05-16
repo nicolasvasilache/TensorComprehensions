@@ -236,21 +236,26 @@ auto
             .unrollCopyShared(true)
             .useReadOnlyCache(true);
 
-// TODO: RERUN ME!!!
 auto
     options_Kronecker3_2_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_64_N2_64 =
         tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .fixParametersBeforeScheduling(false)
+            .tile(2, 1, 8, 32, 2)
+            .unroll(32)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(8, 16)
+            .mapToBlocks(128, 8)
             .useSharedMemory(true)
             .usePrivateMemory(true)
-            .unrollCopyShared(false)
-            .outerScheduleFusionStrategy(
-                tc::FusionStrategy::Preserve3Coincident)
-            .fixParametersBeforeScheduling(true)
-            .tile(2, 1)
-            .tileImperfectlyNested(false)
-            .mapToBlocks(256, 256)
-            .mapToThreads(8, 16, 1)
-            .unroll(256);
+            .unrollCopyShared(true)
+            .useReadOnlyCache(true);
 
 auto
     options_Kronecker3_2_P100_autotuned_M_256_D0_16_D1_16_D2_16_N0_64_N1_128_N2_128 =
@@ -390,23 +395,23 @@ auto
             .unrollCopyShared(false)
             .useReadOnlyCache(true);
 
-// TODO: RERUN ME
 auto
     options_Kronecker3_2_V100_autotuned_M_256_D0_16_D1_16_D2_16_N0_32_N1_32_N2_32 =
         tc::CudaMappingOptions::makeNaiveMappingOptions()
             .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
             .outerScheduleAllowSkewing(false)
             .outerSchedulePositiveOrthant(true)
-            .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
             .intraTileScheduleAllowSkewing(false)
             .intraTileSchedulePositiveOrthant(true)
             .fixParametersBeforeScheduling(false)
-            .tile(2)
-            .unroll(32)
+            .tile(16, 1)
+            .unroll(2)
             .tileImperfectlyNested(false)
             .matchLibraryCalls(false)
-            .mapToThreads(16, 2, 8)
-            .mapToBlocks(128, 32)
+            .mapToThreads(16, 16)
+            .mapToBlocks(16, 32, 256)
             .useSharedMemory(true)
             .usePrivateMemory(true)
             .unrollCopyShared(true)

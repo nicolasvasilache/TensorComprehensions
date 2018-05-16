@@ -25,7 +25,7 @@ constexpr static auto TC_Sum_Squares_2D_1D_NAME = "sum_squares_2D_1D";
 constexpr static auto TC_Var_2D_1D_NAME = "var_2D_1D";
 constexpr static auto TC_Sum_And_Squares_2D_1D_NAME = "sum_and_squares_2D_1D";
 constexpr static auto TC_Moments2_2D_1D_NAME = "moments2_2D_1D";
-constexpr static auto TC_Moments2_2D_1D = R"TC(
+constexpr static auto TC_Moments = R"TC(
 def sum_2D_1D(float(N, K) I) -> (sum)
 {
     sum(n) +=! I(n, r_k)
@@ -59,25 +59,66 @@ def moments2_2D_1D(float(N, K) I) -> (mean, var)
 }
 )TC";
 
-auto options_Sum_2D_1D_P100_autotuned_N_1024_K_36864 =
+auto options_Sum_2D_1D_P100_autotuned_N_128_K_2304 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
         .outerScheduleAllowSkewing(false)
         .outerSchedulePositiveOrthant(true)
         .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
         .intraTileScheduleAllowSkewing(false)
         .intraTileSchedulePositiveOrthant(true)
         .fixParametersBeforeScheduling(false)
-        .tile(2)
+        .tile(8)
+        .unroll(2)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(16, 8)
+        .mapToBlocks(512)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
+
+auto options_Sum_2D_1D_P100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
         .unroll(4)
         .tileImperfectlyNested(false)
         .matchLibraryCalls(true)
-        .mapToThreads(288)
-        .mapToBlocks(288)
-        .useSharedMemory(false)
+        .mapToThreads(512)
+        .mapToBlocks(65536)
+        .useSharedMemory(true)
         .usePrivateMemory(false)
-        .unrollCopyShared(true)
+        .unrollCopyShared(false)
         .useReadOnlyCache(false);
+
+auto options_Mean_2D_1D_P100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(5, 576, 0)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(256)
+        .mapToBlocks(128, 288)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
 
 auto options_Mean_2D_1D_P100_autotuned_N_1024_K_36864 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
@@ -100,6 +141,26 @@ auto options_Mean_2D_1D_P100_autotuned_N_1024_K_36864 =
         .unrollCopyShared(true)
         .useReadOnlyCache(false);
 
+auto options_Sum_Squares_2D_1D_P100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(144)
+        .mapToBlocks(2048, 128)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
+
 auto options_Sum_Squares_2D_1D_P100_autotuned_N_1024_K_36864 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
         .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
@@ -119,6 +180,27 @@ auto options_Sum_Squares_2D_1D_P100_autotuned_N_1024_K_36864 =
         .usePrivateMemory(true)
         .unrollCopyShared(true)
         .useReadOnlyCache(false);
+
+auto options_Var_2D_1D_P100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(4)
+        .unroll(16)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(144)
+        .mapToBlocks(1024, 512)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
 
 auto options_Var_2D_1D_P100_autotuned_N_1024_K_36864 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
@@ -141,6 +223,26 @@ auto options_Var_2D_1D_P100_autotuned_N_1024_K_36864 =
         .unrollCopyShared(true)
         .useReadOnlyCache(true);
 
+auto options_Sum_And_Squares_2D_1D_P100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
+        .unroll(16)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(144)
+        .mapToBlocks(256, 512, 128)
+        .useSharedMemory(false)
+        .usePrivateMemory(false)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
+
 auto options_Sum_And_Squares_2D_1D_P100_autotuned_N_1024_K_36864 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
         .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
@@ -150,12 +252,33 @@ auto options_Sum_And_Squares_2D_1D_P100_autotuned_N_1024_K_36864 =
         .intraTileScheduleAllowSkewing(false)
         .intraTileSchedulePositiveOrthant(true)
         .fixParametersBeforeScheduling(true)
-        .tile(1)
-        .unroll(1)
+        .tile(1, 576)
+        .unroll(16)
         .tileImperfectlyNested(false)
         .matchLibraryCalls(true)
-        .mapToThreads(512)
-        .mapToBlocks(4608, 144, 3)
+        .mapToThreads(72)
+        .mapToBlocks(9216, 32)
+        .useSharedMemory(false)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
+
+auto options_Moments2_2D_1D_P100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(5, 3)
+        .unroll(2)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(64)
+        .mapToBlocks(1024, 512)
         .useSharedMemory(false)
         .usePrivateMemory(true)
         .unrollCopyShared(false)
@@ -177,6 +300,251 @@ auto options_Moments2_2D_1D_P100_autotuned_N_1024_K_36864 =
         .matchLibraryCalls(true)
         .mapToThreads(128)
         .mapToBlocks(1152)
+        .useSharedMemory(false)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(false);
+
+// V100
+auto options_Sum_2D_1D_V100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
+        .unroll(8)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(288)
+        .mapToBlocks(1024, 36, 2048)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
+
+auto options_Sum_2D_1D_V100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
+        .unroll(1)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(512)
+        .mapToBlocks(9216, 1152, 4)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
+
+auto options_Mean_2D_1D_V100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(2, 8)
+        .unroll(16)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(72, 3)
+        .mapToBlocks(256, 256)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
+
+auto options_Mean_2D_1D_V100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(2)
+        .unroll(2)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(72)
+        .mapToBlocks(4608, 16, 18432)
+        .useSharedMemory(false)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
+
+auto options_Sum_Squares_2D_1D_V100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(1)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(288)
+        .mapToBlocks(2304, 256)
+        .useSharedMemory(false)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
+
+auto options_Sum_Squares_2D_1D_V100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
+        .unroll(4)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(512)
+        .mapToBlocks(9216, 8)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
+
+auto options_Var_2D_1D_V100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(2)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(256)
+        .mapToBlocks(288)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
+
+auto options_Var_2D_1D_V100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(3, 512, 1024)
+        .unroll(16)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(512)
+        .mapToBlocks(1152, 32)
+        .useSharedMemory(false)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
+
+auto options_Sum_And_Squares_2D_1D_V100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
+        .unroll(16)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(288)
+        .mapToBlocks(2304, 8, 16)
+        .useSharedMemory(false)
+        .usePrivateMemory(false)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
+
+auto options_Sum_And_Squares_2D_1D_V100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(1, 2304)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(144)
+        .mapToBlocks(36864)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
+
+auto options_Moments2_2D_1D_V100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(2)
+        .unroll(8)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(288)
+        .mapToBlocks(512, 512, 64)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(false);
+
+auto options_Moments2_2D_1D_V100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(2, 18)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(512)
+        .mapToBlocks(2048, 64, 72)
         .useSharedMemory(false)
         .usePrivateMemory(true)
         .unrollCopyShared(true)

@@ -195,17 +195,7 @@ void GroupConvolution::runCaffe2GroupConvolution() {
 TEST_F(GroupConvolution, GroupConvolution) {
   Init(
       FLAGS_N, FLAGS_G, FLAGS_C, FLAGS_F, FLAGS_H, FLAGS_W, FLAGS_KH, FLAGS_KW);
-  // If num threads is too small just get some better default
-  auto threads = (W >= 10) ? std::vector<size_t>{W / 4, H / 2}
-                           : std::vector<size_t>{4, 8, 4};
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .tile(1, 1, 1)
-                     .mapToThreads(threads)
-                     .mapToBlocks({32, 32})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(false)
-                     .unroll(1);
-  runGroupConvolution(options);
+  runGroupConvolution(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
 // P100 TC
@@ -244,28 +234,28 @@ TEST_F(
 // P100 ATen
 TEST_F(
     GroupConvolution,
-    GroupConvolution_ATen_P100_autotuned_N_32_G_32_C_4_F_4_W_56_H_56_KW_3_KH_3) {
+    GroupConvolution_ATen_P100_N_32_G_32_C_4_F_4_W_56_H_56_KW_3_KH_3) {
   Init(32, 32, 4, 4, 56, 56, 3, 3);
   runATenGroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_ATen_P100_autotuned_N_32_G_32_C_8_F_8_W_28_H_28_KW_3_KH_3) {
+    GroupConvolution_ATen_P100_N_32_G_32_C_8_F_8_W_28_H_28_KW_3_KH_3) {
   Init(32, 32, 8, 8, 28, 28, 3, 3);
   runATenGroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_ATen_P100_autotuned_N_32_G_32_C_16_F_16_W_14_H_14_KW_3_KH_3) {
+    GroupConvolution_ATen_P100_N_32_G_32_C_16_F_16_W_14_H_14_KW_3_KH_3) {
   Init(32, 32, 16, 16, 14, 14, 3, 3);
   runATenGroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_ATen_P100_autotuned_N_32_G_32_C_32_F_32_W_7_H_7_KW_3_KH_3) {
+    GroupConvolution_ATen_P100_N_32_G_32_C_32_F_32_W_7_H_7_KW_3_KH_3) {
   Init(32, 32, 32, 32, 7, 7, 3, 3);
   runATenGroupConvolution();
 }
@@ -273,28 +263,28 @@ TEST_F(
 // P100 Caffe2
 TEST_F(
     GroupConvolution,
-    GroupConvolution_Caffe2_P100_autotuned_N_32_G_32_C_4_F_4_W_56_H_56_KW_3_KH_3) {
+    GroupConvolution_Caffe2_P100_N_32_G_32_C_4_F_4_W_56_H_56_KW_3_KH_3) {
   Init(32, 32, 4, 4, 56, 56, 3, 3);
   runCaffe2GroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_Caffe2_P100_autotuned_N_32_G_32_C_8_F_8_W_28_H_28_KW_3_KH_3) {
+    GroupConvolution_Caffe2_P100_N_32_G_32_C_8_F_8_W_28_H_28_KW_3_KH_3) {
   Init(32, 32, 8, 8, 28, 28, 3, 3);
   runCaffe2GroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_Caffe2_P100_autotuned_N_32_G_32_C_16_F_16_W_14_H_14_KW_3_KH_3) {
+    GroupConvolution_Caffe2_P100_N_32_G_32_C_16_F_16_W_14_H_14_KW_3_KH_3) {
   Init(32, 32, 16, 16, 14, 14, 3, 3);
   runCaffe2GroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_Caffe2_P100_autotuned_N_32_G_32_C_32_F_32_W_7_H_7_KW_3_KH_3) {
+    GroupConvolution_Caffe2_P100_N_32_G_32_C_32_F_32_W_7_H_7_KW_3_KH_3) {
   Init(32, 32, 32, 32, 7, 7, 3, 3);
   runCaffe2GroupConvolution();
 }
@@ -335,28 +325,28 @@ TEST_F(
 // V100 ATen
 TEST_F(
     GroupConvolution,
-    GroupConvolution_ATen_V100_autotuned_N_32_G_32_C_4_F_4_W_56_H_56_KW_3_KH_3) {
+    GroupConvolution_ATen_V100_N_32_G_32_C_4_F_4_W_56_H_56_KW_3_KH_3) {
   Init(32, 32, 4, 4, 56, 56, 3, 3);
   runATenGroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_ATen_V100_autotuned_N_32_G_32_C_8_F_8_W_28_H_28_KW_3_KH_3) {
+    GroupConvolution_ATen_V100_N_32_G_32_C_8_F_8_W_28_H_28_KW_3_KH_3) {
   Init(32, 32, 8, 8, 28, 28, 3, 3);
   runATenGroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_ATen_V100_autotuned_N_32_G_32_C_16_F_16_W_14_H_14_KW_3_KH_3) {
+    GroupConvolution_ATen_V100_N_32_G_32_C_16_F_16_W_14_H_14_KW_3_KH_3) {
   Init(32, 32, 16, 16, 14, 14, 3, 3);
   runATenGroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_ATen_V100_autotuned_N_32_G_32_C_32_F_32_W_7_H_7_KW_3_KH_3) {
+    GroupConvolution_ATen_V100_N_32_G_32_C_32_F_32_W_7_H_7_KW_3_KH_3) {
   Init(32, 32, 32, 32, 7, 7, 3, 3);
   runATenGroupConvolution();
 }
@@ -364,28 +354,28 @@ TEST_F(
 // V100 Caffe2
 TEST_F(
     GroupConvolution,
-    GroupConvolution_Caffe2_V100_autotuned_N_32_G_32_C_4_F_4_W_56_H_56_KW_3_KH_3) {
+    GroupConvolution_Caffe2_V100_N_32_G_32_C_4_F_4_W_56_H_56_KW_3_KH_3) {
   Init(32, 32, 4, 4, 56, 56, 3, 3);
   runCaffe2GroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_Caffe2_V100_autotuned_N_32_G_32_C_8_F_8_W_28_H_28_KW_3_KH_3) {
+    GroupConvolution_Caffe2_V100_N_32_G_32_C_8_F_8_W_28_H_28_KW_3_KH_3) {
   Init(32, 32, 8, 8, 28, 28, 3, 3);
   runCaffe2GroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_Caffe2_V100_autotuned_N_32_G_32_C_16_F_16_W_14_H_14_KW_3_KH_3) {
+    GroupConvolution_Caffe2_V100_N_32_G_32_C_16_F_16_W_14_H_14_KW_3_KH_3) {
   Init(32, 32, 16, 16, 14, 14, 3, 3);
   runCaffe2GroupConvolution();
 }
 
 TEST_F(
     GroupConvolution,
-    GroupConvolution_Caffe2_V100_autotuned_N_32_G_32_C_32_F_32_W_7_H_7_KW_3_KH_3) {
+    GroupConvolution_Caffe2_V100_N_32_G_32_C_32_F_32_W_7_H_7_KW_3_KH_3) {
   Init(32, 32, 32, 32, 7, 7, 3, 3);
   runCaffe2GroupConvolution();
 }

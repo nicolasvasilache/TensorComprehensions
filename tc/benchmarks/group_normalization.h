@@ -20,10 +20,12 @@
 
 namespace tc {
 constexpr static auto TC_GroupNormalization_NAME = "group_normalization";
+constexpr static auto TC_GroupNormalizationFromSums_NAME =
+    "group_normalization_from_sums";
 constexpr static auto TC_GroupNormalization = R"TC(
 def group_normalization(
     float(N, G, D, H, W) I, float(G, D) gamma, float(G, D) beta)
-    -> (O, mean, var)
+    -> (O, sum, sumSquares)
 {
 # This first implementation uses the formula var = E((x - mean)^2).
 # On P100, the autotuner finds a 2.6ms best version
@@ -48,83 +50,29 @@ def group_normalization(
 
 # This implementation uses the formula var = E(x^2) - mean^2 and
 # inlining. This gets another 20% on V100.
-    mean(n, g) +=! I(n, g, r_d, r_h, r_w)
-     var(n, g) +=! I(n, g, r_d, r_h, r_w) * I(n, g, r_d, r_h, r_w)
+            sum(n, g) +=! I(n, g, r_d, r_h, r_w)
+     sumSquares(n, g) +=! I(n, g, r_d, r_h, r_w) * I(n, g, r_d, r_h, r_w)
     O(n, g, d, h, w) = gamma(g, d)
-      * ( I(n, g, d, h, w) - mean(n, g) / (D * H * W))
-      * rsqrt( var(n, g) / (D * H * W)
-            - mean(n, g) * mean(n, g)  / (D * H * W)  / (D * H * W)
+      * ( I(n, g, d, h, w) - sum(n, g) / (D * H * W))
+      * rsqrt( sumSquares(n, g) / (D * H * W)
+            - sum(n, g) * sum(n, g)  / (D * H * W)  / (D * H * W)
             + 1e-5 )
       + beta(g, d)
 }
+
+def group_normalization_from_sums(
+    float(N, G, D, H, W) I, float(G, D) gamma, float(G, D) beta,
+    float(N, G) sum, float(N, G) sumSquares)
+    -> (O, tmp1, tmp2)
+{
+    tmp1(n, g) =        sum(n, g) / (D * H * W)
+    tmp2(n, g) = sumSquares(n, g) / (D * H * W) - sum(n, g) * sum(n, g)
+    O(n, g, d, h, w) = gamma(g, d)
+      * ( I(n, g, d, h, w) - tmp1(n, g) )
+      * rsqrt( tmp2(n, g) + 1e-5 )
+      + beta(g, d)
+}
   )TC";
-
-// These options were found by a longer tuning run on a Maxwell card.
-// More specifically: Tesla M40
-auto options_GroupNormalization_M40_autotuned_N_32_C_512_G_32_H_48_W_48 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
-        .outerScheduleAllowSkewing(false)
-        .outerSchedulePositiveOrthant(true)
-        .intraTileScheduleFusionStrategy(
-            tc::FusionStrategy::Preserve3Coincident)
-        .intraTileScheduleAllowSkewing(false)
-        .intraTileSchedulePositiveOrthant(true)
-        .fixParametersBeforeScheduling(true)
-        .tile(6, 4, 128, 48, 24)
-        .unroll(1)
-        .tileImperfectlyNested(false)
-        .matchLibraryCalls(false)
-        .mapToThreads(16, 24)
-        .mapToBlocks(32, 12, 128)
-        .useSharedMemory(false)
-        .usePrivateMemory(true)
-        .unrollCopyShared(false)
-        .useReadOnlyCache(true);
-
-// These options were found by a longer tuning run on a Pascal card.
-// More specifically: Quadro GP100
-auto options_GroupNormalization_P100_autotuned_N_32_C_512_G_32_H_48_W_48 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
-        .outerScheduleAllowSkewing(false)
-        .outerSchedulePositiveOrthant(true)
-        .intraTileScheduleFusionStrategy(
-            tc::FusionStrategy::Preserve3Coincident)
-        .intraTileScheduleAllowSkewing(false)
-        .intraTileSchedulePositiveOrthant(true)
-        .tile(6, 1, 24)
-        .unroll(16)
-        .tileImperfectlyNested(false)
-        .matchLibraryCalls(false)
-        .mapToThreads(48, 6)
-        .mapToBlocks(256, 32)
-        .useSharedMemory(true)
-        .usePrivateMemory(true)
-        .unrollCopyShared(false);
-
-// These options were found by a longer tuning run on a Volta card.
-// More specifically: Tesla V100-SXM2-16GB.
-auto options_GroupNormalization_V100_autotuned_N_32_C_512_G_32_H_48_W_48 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
-        .outerScheduleAllowSkewing(false)
-        .outerSchedulePositiveOrthant(true)
-        .intraTileScheduleFusionStrategy(
-            tc::FusionStrategy::Preserve3Coincident)
-        .intraTileScheduleAllowSkewing(false)
-        .intraTileSchedulePositiveOrthant(true)
-        .fixParametersBeforeScheduling(true)
-        .tile(2, 3)
-        .unroll(2)
-        .tileImperfectlyNested(false)
-        .matchLibraryCalls(false)
-        .mapToThreads(16, 16, 1)
-        .mapToBlocks(32, 256, 1)
-        .useSharedMemory(true)
-        .usePrivateMemory(false)
-        .unrollCopyShared(false)
-        .useReadOnlyCache(false);
 
 // These options were found by a longer tuning run on a Pascal card.
 // More specifically: Quadro GP100
@@ -147,4 +95,151 @@ auto options_GroupNormalization_P100_autotuned_N_4_C_512_G_32_H_12_W_12 =
         .usePrivateMemory(false)
         .unrollCopyShared(false)
         .useReadOnlyCache(false);
+
+auto options_GroupNormalization_P100_autotuned_N_32_C_512_G_32_H_48_W_48 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .tile(6, 1, 24)
+        .unroll(16)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(48, 6)
+        .mapToBlocks(256, 32)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false);
+
+// These options were found by a longer tuning run on a Volta card.
+// More specifically: Tesla V100-SXM2-16GB.
+auto options_GroupNormalization_V100_autotuned_N_4_C_512_G_32_H_12_W_12 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1, 2)
+        .unroll(16)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(16, 32)
+        .mapToBlocks(32, 256, 8)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(false);
+
+auto options_GroupNormalization_V100_autotuned_N_32_C_512_G_32_H_48_W_48 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(2, 1, 8, 12, 32)
+        .unroll(1)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(8, 12)
+        .mapToBlocks(256, 128, 48)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
+
+// Experimental purposes atm
+// 620 us on Pascal
+auto
+    options_GroupNormalizationFromSums_P100_autotuned_N_4_C_512_G_32_H_12_W_12 =
+        // 14 us on Pascal
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1, 1, 0, 4, 0)
+        .unroll(8)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(16, 16)
+        .mapToBlocks(6, 128, 1)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
+auto
+    options_GroupNormalizationFromSums_P100_autotuned_N_32_C_512_G_32_H_48_W_48 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .tile(6, 1, 24)
+            .unroll(16)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(48, 6)
+            .mapToBlocks(256, 32)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(false);
+// xxx us on Volta
+auto
+    options_GroupNormalizationFromSums_V100_autotuned_N_4_C_512_G_32_H_12_W_12 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .tile(6, 1, 24)
+            .unroll(16)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(48, 6)
+            .mapToBlocks(256, 32)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(false);
+// xxx us on Volta
+auto
+    options_GroupNormalizationFromSums_V100_autotuned_N_32_C_512_G_32_H_48_W_48 =
+        tc::CudaMappingOptions::makeNaiveMappingOptions()
+            .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+            .outerScheduleAllowSkewing(false)
+            .outerSchedulePositiveOrthant(true)
+            .intraTileScheduleFusionStrategy(
+                tc::FusionStrategy::Preserve3Coincident)
+            .intraTileScheduleAllowSkewing(false)
+            .intraTileSchedulePositiveOrthant(true)
+            .tile(6, 1, 24)
+            .unroll(16)
+            .tileImperfectlyNested(false)
+            .matchLibraryCalls(false)
+            .mapToThreads(48, 6)
+            .mapToBlocks(256, 32)
+            .useSharedMemory(true)
+            .usePrivateMemory(true)
+            .unrollCopyShared(false);
+
 } // namespace tc

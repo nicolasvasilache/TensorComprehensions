@@ -124,14 +124,7 @@ void BatchMatMul::runATenBatchMatMul() {
 // Generic
 TEST_F(BatchMatMul, TransposedBatchMatMul) {
   Init(FLAGS_B, FLAGS_N, FLAGS_M, FLAGS_K);
-  auto options = tc::CudaMappingOptions::makeNaiveMappingOptions()
-                     .tile(1)
-                     .mapToThreads({128})
-                     .mapToBlocks({B})
-                     .useSharedMemory(true)
-                     .usePrivateMemory(true)
-                     .unroll(256);
-  runBatchMatMul(options);
+  runBatchMatMul(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
 // P100 TC
