@@ -20,7 +20,6 @@
 
 namespace tc {
 constexpr static auto TC_WAVENET1_NAME = "wavenet1";
-constexpr static auto TC_WAVENET2_NAME = "wavenet2";
 constexpr static auto TC_WAVENET = R"TC(
 # Original data is float(B, C, RECEPTIVE_FIELD) and undergoes a \
 # Conv1d to become float(B, RESIDUAL_C, RECEPTIVE_FIELD)
@@ -28,8 +27,9 @@ constexpr static auto TC_WAVENET = R"TC(
 def wavenet1(
     float(B, RESIDUAL_C, RECEPTIVE_FIELD) Data,
     float(DILATION_C, RESIDUAL_C, 2) FilterWeight,
+    float(DILATION_C) FilterBias,
     float(DILATION_C, RESIDUAL_C, 2) GateWeight,
-    float(DILATION_C) Bias,
+    float(DILATION_C) GateBias,
     float(RESIDUAL_C, DILATION_C) ResWeight,
     float(RESIDUAL_C) ResBias,
     float(SKIP_C, DILATION_C) SkipWeight,
@@ -37,141 +37,121 @@ def wavenet1(
     float(DILATION_FACTOR) Dilation)
     -> (FilterOut, GateOut, NonLin, Res, Skip)
 {
-    FilterOut(b, dil, rf)   = Bias(dil)
-        where b in 0:B, dil in 0:DILATION_C, rf in 0:RECEPTIVE_FIELD
-    FilterOut(b, dil, rf)  += Data(b, r_res, rf) * FilterWeight(dil, r_res, 1) +
+    FilterOut(b, dilation_c, rf)   = FilterBias(dilation_c)
+        where b in 0:B, dilation_c in 0:DILATION_C, rf in 0:RECEPTIVE_FIELD
+    FilterOut(b, dilation_c, rf)  += Data(b, r_residual_c, rf) * FilterWeight(dilation_c, r_residual_c, 1) +
         (
-          (rf - DILATION_FACTOR < RECEPTIVE_FIELD) ?
-            Data(b, r_res, rf - DILATION_FACTOR) * FilterWeight(dil, r_res, 0) :
+          (rf - DILATION_FACTOR >= 0) ?
+            Data(b, r_residual_c, rf - DILATION_FACTOR) * FilterWeight(dilation_c, r_residual_c, 0) :
             float(0)
         )
         where rf in 0:RECEPTIVE_FIELD
 
-    GateOut(b, dil, rf)   = Bias(dil)
-        where b in 0:B, dil in 0:DILATION_C, rf in 0:RECEPTIVE_FIELD
-    GateOut(b, dil, rf)  += Data(b, r_res, rf) * GateWeight(dil, r_res, 1) +
+    GateOut(b, dilation_c, rf)   = GateBias(dilation_c)
+        where b in 0:B, dilation_c in 0:DILATION_C, rf in 0:RECEPTIVE_FIELD
+    GateOut(b, dilation_c, rf)  += Data(b, r_residual_c, rf) * GateWeight(dilation_c, r_residual_c, 1) +
         (
-          (rf - DILATION_FACTOR < RECEPTIVE_FIELD) ?
-            Data(b, r_res, rf - DILATION_FACTOR) * GateWeight(dil, r_res, 0) :
+          (rf - DILATION_FACTOR >= 0) ?
+            Data(b, r_residual_c, rf - DILATION_FACTOR) * GateWeight(dilation_c, r_residual_c, 0) :
             float(0)
         )
         where rf in 0:RECEPTIVE_FIELD
 
-    NonLin(b, dil, rf)   =         tanh(FilterOut(b, dil, rf))
+    NonLin(b, dilation_c, rf)   =         tanh(FilterOut(b, dilation_c, rf))
         where rf in 0:RECEPTIVE_FIELD
-    NonLin(b, dil, rf)  *= 1 / (1 + exp( -GateOut(b, dil, rf)))
+    NonLin(b, dilation_c, rf)  *= 1 / (1 + exp( -GateOut(b, dilation_c, rf)))
         where rf in 0:RECEPTIVE_FIELD
 
-       Res(b, res, rf)   =   Data(b,  res, rf) + ResBias(res)
-       Res(b, res, rf)  += NonLin(b, r_in, rf) * ResWeight(res, r_in)
+       Res(b, residual_c, rf)   =   Data(b,  residual_c, rf) + ResBias(residual_c)
+       Res(b, residual_c, rf)  += NonLin(b, r_dilation_c, rf) * ResWeight(residual_c, r_dilation_c)
 
-      Skip(b, skip, rf) +=! NonLin(b, r_dil, rf) * SkipWeight(skip, r_dil)
+      Skip(b, skip, rf) +=! NonLin(b, r_dilation_c, rf) * SkipWeight(skip, r_dilation_c)
         where rf in 0:RECEPTIVE_FIELD
       Skip(b, skip, rf)  = Skip(b, skip, rf) + SkipBias(skip)
-        where rf in 0:RECEPTIVE_FIELD
-}
-
-def wavenet2(
-    float(B, RESIDUAL_C, RECEPTIVE_FIELD) Data,
-    float(DILATION_C, RESIDUAL_C, 2) FilterWeight,
-    float(DILATION_C, RESIDUAL_C, 2) GateWeight,
-    float(DILATION_C) Bias,
-    float(RESIDUAL_C, DILATION_C) ResWeight,
-    float(RESIDUAL_C) ResBias,
-    float(SKIP_C, DILATION_C) SkipWeight,
-    float(SKIP_C) SkipBias,
-    float(DILATION_C, RESIDUAL_C, 2) FilterWeight2,
-    float(DILATION_C, RESIDUAL_C, 2) GateWeight2,
-    float(DILATION_C) Bias2,
-    float(RESIDUAL_C, DILATION_C) ResWeight2,
-    float(RESIDUAL_C) ResBias2,
-    float(SKIP_C, DILATION_C) SkipWeight2,
-    float(SKIP_C) SkipBias2,
-    float(DILATION_FACTOR) Dilation)
-    -> (FilterOut, GateOut, NonLin, Res, Skip, FilterOut2, GateOut2, NonLin2, Res2, Skip2)
-{
-    FilterOut(b, dil, rf)   = Bias(dil)
-        where b in 0:B, dil in 0:DILATION_C, rf in 0:RECEPTIVE_FIELD
-    FilterOut(b, dil, rf)  += Data(b, r_res, rf) * FilterWeight(dil, r_res, 1) +
-        (
-          (rf - DILATION_FACTOR < RECEPTIVE_FIELD) ?
-            Data(b, r_res, rf - DILATION_FACTOR) * FilterWeight(dil, r_res, 0) :
-            float(0)
-        )
-        where rf in 0:RECEPTIVE_FIELD
-
-    GateOut(b, dil, rf)   = Bias(dil)
-        where b in 0:B, dil in 0:DILATION_C, rf in 0:RECEPTIVE_FIELD
-    GateOut(b, dil, rf)  += Data(b, r_res, rf) * GateWeight(dil, r_res, 1) +
-        (
-          (rf - DILATION_FACTOR < RECEPTIVE_FIELD) ?
-            Data(b, r_res, rf - DILATION_FACTOR) * GateWeight(dil, r_res, 0) :
-            float(0)
-        )
-        where rf in 0:RECEPTIVE_FIELD
-
-    NonLin(b, dil, rf)   =         tanh(FilterOut(b, dil, rf))
-        where rf in 0:RECEPTIVE_FIELD
-    NonLin(b, dil, rf)  *= 1 / (1 + exp( -GateOut(b, dil, rf)))
-        where rf in 0:RECEPTIVE_FIELD
-
-       Res(b, res, rf)   =   Data(b,  res, rf) + ResBias(res)
-       Res(b, res, rf)  += NonLin(b, r_in, rf) * ResWeight(res, r_in)
-
-      Skip(b, skip, rf) +=! NonLin(b, r_dil, rf) * SkipWeight(skip, r_dil)
-        where rf in 0:RECEPTIVE_FIELD
-      Skip(b, skip, rf)  = Skip(b, skip, rf) + SkipBias(skip)
-        where rf in 0:RECEPTIVE_FIELD
-
-
-
-    FilterOut2(b, dil, rf)   = Bias(dil)
-        where b in 0:B, dil in 0:DILATION_C, rf in 0:RECEPTIVE_FIELD
-    FilterOut2(b, dil, rf)  += Res(b, r_res, rf) * FilterWeight(dil, r_res, 1) +
-        (
-          (rf - 2 * DILATION_FACTOR >= 0) ?
-            Res(b, r_res, rf - 2 * DILATION_FACTOR) * FilterWeight(dil, r_res, 0) :
-            float(0)
-        )
-        where rf in 0:RECEPTIVE_FIELD
-
-    GateOut2(b, dil, rf)   = Bias(dil)
-        where b in 0:B, dil in 0:DILATION_C, rf in 0:RECEPTIVE_FIELD
-    GateOut2(b, dil, rf)  += Res(b, r_res, rf) * GateWeight(dil, r_res, 1) +
-        (
-          (rf - 2 * DILATION_FACTOR >= 0) ?
-            Res(b, r_res, rf - 2 * DILATION_FACTOR) * GateWeight(dil, r_res, 0) :
-            float(0)
-        )
-        where rf in 0:RECEPTIVE_FIELD
-
-    NonLin2(b, dil, rf)   =         tanh(FilterOut2(b, dil, rf))
-        where rf in 0:RECEPTIVE_FIELD
-    NonLin2(b, dil, rf)  *= 1 / (1 + exp( -GateOut2(b, dil, rf)))
-        where rf in 0:RECEPTIVE_FIELD
-
-       Res2(b, res, rf)   =   Res(b,  res, rf) + ResBias(res)
-       Res2(b, res, rf)  += NonLin2(b, r_in, rf) * ResWeight(res, r_in)
-
-      Skip2(b, skip, rf) +=! NonLin2(b, r_dil, rf) * SkipWeight(skip, r_dil)
-        where rf in 0:RECEPTIVE_FIELD
-      Skip2(b, skip, rf)  = Skip2(b, skip, rf) + SkipBias(skip)
         where rf in 0:RECEPTIVE_FIELD
 }
   )TC";
 
-// TODO: RERUN ME
-auto options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions();
+auto options_WaveNet1_P100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(63)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(32, 4, 1)
+        .mapToBlocks(256, 4, 63)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
 
-auto options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_32 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions();
+auto options_WaveNet1_P100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_32 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(128, 4096, 1000, 64)
+        .unroll(1)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(128)
+        .mapToBlocks(63)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(false);
 
-// TODO: RERUN ME
-auto options_WaveNet2_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions();
+auto options_WaveNet1_V100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1000, 128, 500)
+        .unroll(2)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(256)
+        .mapToBlocks(4000, 128)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(false);
 
-auto options_WaveNet2_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_32 =
-    tc::CudaMappingOptions::makeNaiveMappingOptions();
+auto options_WaveNet1_V100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_32 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(8, 125, 512, 500)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(false)
+        .mapToThreads(16, 16)
+        .mapToBlocks(4000, 2048, 4096)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(false);
 
 } // namespace tc

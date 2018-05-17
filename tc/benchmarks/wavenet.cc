@@ -86,16 +86,16 @@ class WaveNet : public Benchmark {
     DILATION_FACTOR = dilation_factor;
   }
   void runWaveNet1(const tc::CudaMappingOptions& options);
-  void runWaveNet2(const tc::CudaMappingOptions& options);
 };
 
 void WaveNet::runWaveNet1(const tc::CudaMappingOptions& options) {
   at::Tensor data = at::CUDA(at::kFloat).rand({B, RESIDUAL_C, RECEPTIVE_FIELD});
   at::Tensor filterWeight =
       at::CUDA(at::kFloat).rand({DILATION_C, RESIDUAL_C, 2});
+  at::Tensor filterBias = at::CUDA(at::kFloat).rand({DILATION_C});
   at::Tensor gateWeight =
       at::CUDA(at::kFloat).rand({DILATION_C, RESIDUAL_C, 2});
-  at::Tensor bias = at::CUDA(at::kFloat).rand({DILATION_C});
+  at::Tensor gateBias = at::CUDA(at::kFloat).rand({DILATION_C});
   at::Tensor resWeight = at::CUDA(at::kFloat).rand({RESIDUAL_C, DILATION_C});
   at::Tensor resBias = at::CUDA(at::kFloat).rand({RESIDUAL_C});
   at::Tensor skipWeight = at::CUDA(at::kFloat).rand({SKIP_C, DILATION_C});
@@ -104,8 +104,9 @@ void WaveNet::runWaveNet1(const tc::CudaMappingOptions& options) {
 
   std::vector<at::Tensor> inputs = {data,
                                     filterWeight,
+                                    filterBias,
                                     gateWeight,
-                                    bias,
+                                    gateBias,
                                     resWeight,
                                     resBias,
                                     skipWeight,
@@ -126,60 +127,8 @@ void WaveNet::runWaveNet1(const tc::CudaMappingOptions& options) {
   Check(tc::TC_WAVENET, tc::TC_WAVENET1_NAME, bestOptions[0], inputs);
 }
 
-void WaveNet::runWaveNet2(const tc::CudaMappingOptions& options) {
-  at::Tensor data = at::CUDA(at::kFloat).rand({B, RESIDUAL_C, RECEPTIVE_FIELD});
-  at::Tensor filterWeight =
-      at::CUDA(at::kFloat).rand({DILATION_C, RESIDUAL_C, 2});
-  at::Tensor gateWeight =
-      at::CUDA(at::kFloat).rand({DILATION_C, RESIDUAL_C, 2});
-  at::Tensor bias = at::CUDA(at::kFloat).rand({DILATION_C});
-  at::Tensor resWeight = at::CUDA(at::kFloat).rand({RESIDUAL_C, DILATION_C});
-  at::Tensor resBias = at::CUDA(at::kFloat).rand({RESIDUAL_C});
-  at::Tensor skipWeight = at::CUDA(at::kFloat).rand({SKIP_C, DILATION_C});
-  at::Tensor skipBias = at::CUDA(at::kFloat).rand({SKIP_C});
-  at::Tensor filterWeight2 =
-      at::CUDA(at::kFloat).rand({DILATION_C, RESIDUAL_C, 2});
-  at::Tensor gateWeight2 =
-      at::CUDA(at::kFloat).rand({DILATION_C, RESIDUAL_C, 2});
-  at::Tensor bias2 = at::CUDA(at::kFloat).rand({DILATION_C});
-  at::Tensor resWeight2 = at::CUDA(at::kFloat).rand({RESIDUAL_C, DILATION_C});
-  at::Tensor resBias2 = at::CUDA(at::kFloat).rand({RESIDUAL_C});
-  at::Tensor skipWeight2 = at::CUDA(at::kFloat).rand({SKIP_C, DILATION_C});
-  at::Tensor skipBias2 = at::CUDA(at::kFloat).rand({SKIP_C});
-  at::Tensor dilation = at::CUDA(at::kFloat).rand({DILATION_FACTOR});
-
-  std::vector<at::Tensor> inputs = {data,
-                                    filterWeight,
-                                    gateWeight,
-                                    bias,
-                                    resWeight,
-                                    resBias,
-                                    skipWeight,
-                                    skipBias,
-                                    filterWeight2,
-                                    gateWeight2,
-                                    bias2,
-                                    resWeight2,
-                                    resBias2,
-                                    skipWeight2,
-                                    skipBias2,
-                                    dilation};
-
-  std::vector<tc::CudaMappingOptions> bestOptions{options};
-  if (FLAGS_autotune) {
-    bestOptions = autotune(
-        FLAGS_save_tuner_proto_prefix + std::string("/wavenet_2_cache"),
-        FLAGS_save_tuner_proto_prefix + std::string("/wavenet_2_best"),
-        tc::TC_WAVENET,
-        tc::TC_WAVENET2_NAME,
-        inputs,
-        options);
-    CHECK_GE(bestOptions.size(), 1u);
-  }
-  Check(tc::TC_WAVENET, tc::TC_WAVENET2_NAME, bestOptions[0], inputs);
-}
-
-// WaveNet 1 block
+/// WaveNet 1 block
+// Generic
 TEST_F(WaveNet, WaveNet1) {
   Init(
       FLAGS_B,
@@ -191,28 +140,38 @@ TEST_F(WaveNet, WaveNet1) {
   runWaveNet1(tc::CudaMappingOptions::makeNaiveMappingOptions());
 }
 
-TEST_F(WaveNet, WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1) {
+// P100
+TEST_F(
+    WaveNet,
+    WaveNet1_P100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1) {
   Init(1, 32, 32, 256, 4000, 1);
   runWaveNet1(
-      tc::options_WaveNet1_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1);
+      tc::options_WaveNet1_P100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1);
 }
 
-// WaveNet 2 block
-TEST_F(WaveNet, WaveNet2) {
-  Init(
-      FLAGS_B,
-      FLAGS_RESIDUAL_C,
-      FLAGS_DILATION_C,
-      FLAGS_SKIP_C,
-      FLAGS_RECEPTIVE_FIELD,
-      FLAGS_DILATION_FACTOR);
-  runWaveNet2(tc::CudaMappingOptions::makeNaiveMappingOptions());
+TEST_F(
+    WaveNet,
+    WaveNet1_P100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_32) {
+  Init(1, 32, 32, 256, 4000, 32);
+  runWaveNet1(
+      tc::options_WaveNet1_P100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_32);
 }
 
-TEST_F(WaveNet, WaveNet2_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1) {
+// V100
+TEST_F(
+    WaveNet,
+    WaveNet1_V100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1) {
   Init(1, 32, 32, 256, 4000, 1);
-  runWaveNet2(
-      tc::options_WaveNet2_P100_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1);
+  runWaveNet1(
+      tc::options_WaveNet1_V100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_1);
+}
+
+TEST_F(
+    WaveNet,
+    WaveNet1_V100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_32) {
+  Init(1, 32, 32, 256, 4000, 32);
+  runWaveNet1(
+      tc::options_WaveNet1_V100_autotuned_B_1_RES_32_DIL_32_SKIP_256_REC_4000_F_32);
 }
 
 int main(int argc, char** argv) {
