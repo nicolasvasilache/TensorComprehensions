@@ -60,25 +60,28 @@ class GroupNormalization : public Benchmark {
   }
   std::vector<at::Tensor> runGroupNormalization(
       const tc::CudaMappingOptions& options,
-      const std::string& entryPoint = tc::TC_GroupNormalization_NAME);
+      const tc::CudaMappingOptions& optionsMoments =
+          tc::CudaMappingOptions::makeNaiveMappingOptions());
+  std::vector<at::Tensor> runGroupNormalizationSingleKernel(
+      const tc::CudaMappingOptions& options);
   void runCaffe2GroupNormalization();
   void runATenGroupNormalization();
 };
 
 std::vector<at::Tensor> GroupNormalization::runGroupNormalization(
     const tc::CudaMappingOptions& options,
-    const std::string& entryPoint) {
+    const tc::CudaMappingOptions& optionsMoments) {
   at::Tensor I = at::CUDA(at::kFloat).rand({N, G, D, H, W});
   at::Tensor gamma = at::CUDA(at::kFloat).rand({G, D});
   at::Tensor beta = at::CUDA(at::kFloat).rand({G, D});
+  auto view = I.view({N, G, -1});
+  auto mean = view.mean(-1, true);
+  auto var = view.var(-1, true).view({N, G, 1});
 
   auto check_fun = [&](const std::vector<at::Tensor>& inputs,
                        const std::vector<at::Tensor>& outputs) {
     TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
-    auto v = I.view({N, G, -1});
-    auto mean = v.mean(-1, true);
-    auto var = v.var(-1, true).view({N, G, 1});
-    auto x = ((v - mean) / (var + 1e-5f).sqrt());
+    auto x = ((view - mean) / (var + 1e-5f).sqrt());
     auto y = gamma.view({1, G, D, 1, 1}) * x.view({N, G, D, H, W}) +
         beta.view({1, G, D, 1, 1});
     TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
@@ -86,14 +89,8 @@ std::vector<at::Tensor> GroupNormalization::runGroupNormalization(
     return true;
   };
 
-  auto v = I.view({N, G, -1});
-  auto inputs = (entryPoint == tc::TC_GroupNormalizationSingleKernel_NAME)
-      ? std::vector<at::Tensor>{I, gamma, beta}
-      : std::vector<at::Tensor>{I,
-                                gamma,
-                                beta,
-                                v.sum(-1, true).view({N, G}),
-                                v.pow(2.0f).sum(-1, true).view({N, G})};
+  auto inputs = std::vector<at::Tensor>{
+      I, gamma, beta, mean.view({N, G}), var.view({N, G})};
   std::string suffix = std::string("_N_") + std::to_string(N) +
       std::string("_C_") + std::to_string(C) + std::string("_G_") +
       std::to_string(G) + std::string("_H_") + std::to_string(H) +
@@ -106,13 +103,79 @@ std::vector<at::Tensor> GroupNormalization::runGroupNormalization(
         FLAGS_save_tuner_proto_prefix +
             std::string("/group_normalization_best") + suffix,
         tc::TC_GroupNormalization,
-        entryPoint,
+        tc::TC_GroupNormalization_NAME,
+        inputs,
+        options);
+    CHECK_GE(bestOptions.size(), 1u);
+  }
+
+  auto pExecutorMoments = tc::aten::compile<tc::CudaBackend>(
+      tc::TC_GroupNormalization,
+      tc::TC_Moments2_2D_1D_NAME,
+      {I.view({N * G, D * H * W})},
+      optionsMoments);
+  std::vector<at::Tensor> outputs = tc::aten::prepareOutputs(
+      tc::TC_GroupNormalization,
+      tc::TC_Moments2_2D_1D_NAME,
+      {I.view({N * G, D * H * W})});
+  tc::aten::run(*pExecutorMoments, {I.view({N * G, D * H * W})}, outputs);
+  auto computeMoments = [&I, &outputs, &pExecutorMoments, this]() {
+    return tc::aten::profile(
+        *pExecutorMoments, {I.view({N * G, D * H * W})}, outputs);
+  };
+  return Check(
+      tc::TC_GroupNormalization,
+      tc::TC_GroupNormalization_NAME,
+      bestOptions[0],
+      inputs,
+      check_fun,
+      computeMoments);
+}
+
+std::vector<at::Tensor> GroupNormalization::runGroupNormalizationSingleKernel(
+    const tc::CudaMappingOptions& options) {
+  at::Tensor I = at::CUDA(at::kFloat).rand({N, G, D, H, W});
+  at::Tensor gamma = at::CUDA(at::kFloat).rand({G, D});
+  at::Tensor beta = at::CUDA(at::kFloat).rand({G, D});
+
+  auto check_fun = [&](const std::vector<at::Tensor>& inputs,
+                       const std::vector<at::Tensor>& outputs) {
+    TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
+    auto view = I.view({N, G, -1});
+    auto mean = view.mean(-1, true);
+    auto var = view.var(-1, true).view({N, G, 1});
+    auto x = ((view - mean) / (var + 1e-5f).sqrt());
+    auto y = gamma.view({1, G, D, 1, 1}) * x.view({N, G, D, H, W}) +
+        beta.view({1, G, D, 1, 1});
+    TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
+    checkRtol(outputs[0] - y, {I}, D * H * W, 1e-6);
+    return true;
+  };
+
+  auto inputs = std::vector<at::Tensor>{I, gamma, beta};
+  std::string suffix = std::string("_N_") + std::to_string(N) +
+      std::string("_C_") + std::to_string(C) + std::string("_G_") +
+      std::to_string(G) + std::string("_H_") + std::to_string(H) +
+      std::string("_W_") + std::to_string(W);
+  std::vector<tc::CudaMappingOptions> bestOptions{options};
+  if (FLAGS_autotune) {
+    bestOptions = autotune(
+        FLAGS_save_tuner_proto_prefix +
+            std::string("/group_normalization_cache") + suffix,
+        FLAGS_save_tuner_proto_prefix +
+            std::string("/group_normalization_best") + suffix,
+        tc::TC_GroupNormalization,
+        tc::TC_GroupNormalizationSingleKernel_NAME,
         inputs,
         options);
     CHECK_GE(bestOptions.size(), 1u);
   }
   return Check(
-      tc::TC_GroupNormalization, entryPoint, bestOptions[0], inputs, check_fun);
+      tc::TC_GroupNormalization,
+      tc::TC_GroupNormalizationSingleKernel_NAME,
+      bestOptions[0],
+      inputs,
+      check_fun);
 }
 
 void GroupNormalization::runCaffe2GroupNormalization() {
@@ -156,7 +219,8 @@ TEST_F(
     GroupNormalization_P100_autotuned_N_4_C_512_G_32_H_12_W_12) {
   Init(4, 512, 32, 12, 12);
   runGroupNormalization(
-      tc::options_GroupNormalization_P100_autotuned_N_4_C_512_G_32_H_12_W_12);
+      tc::options_GroupNormalization_P100_autotuned_N_4_C_512_G_32_H_12_W_12,
+      tc::options_Moments2_2D_1D_P100_autotuned_N_128_K_2304);
 }
 
 TEST_F(
@@ -164,7 +228,38 @@ TEST_F(
     GroupNormalization_P100_autotuned_N_32_C_512_G_32_H_48_W_48) {
   Init(32, 512, 32, 48, 48);
   runGroupNormalization(
-      tc::options_GroupNormalization_P100_autotuned_N_32_C_512_G_32_H_48_W_48);
+      tc::options_GroupNormalization_P100_autotuned_N_32_C_512_G_32_H_48_W_48,
+      tc::options_Moments2_2D_1D_P100_autotuned_N_1024_K_36864);
+}
+
+// P100 Caffe2
+TEST_F(
+    GroupNormalization,
+    GroupNormalization_Caffe2_P100_N_4_C_512_G_32_H_12_W_12) {
+  Init(4, 512, 32, 12, 12);
+  runCaffe2GroupNormalization();
+}
+
+TEST_F(
+    GroupNormalization,
+    GroupNormalization_Caffe2_P100_N_32_C_512_G_32_H_48_W_48) {
+  Init(32, 512, 32, 48, 48);
+  runCaffe2GroupNormalization();
+}
+
+// P100 ATen
+TEST_F(
+    GroupNormalization,
+    GroupNormalization_ATen_P100_N_4_C_512_G_32_H_12_W_12) {
+  Init(4, 512, 32, 12, 12);
+  runATenGroupNormalization();
+}
+
+TEST_F(
+    GroupNormalization,
+    GroupNormalization_ATen_P100_N_32_C_512_G_32_H_48_W_48) {
+  Init(32, 512, 32, 48, 48);
+  runATenGroupNormalization();
 }
 
 // V100 TC
@@ -173,7 +268,8 @@ TEST_F(
     GroupNormalization_V100_autotuned_N_4_C_512_G_32_H_12_W_12) {
   Init(4, 512, 32, 12, 12);
   runGroupNormalization(
-      tc::options_GroupNormalization_V100_autotuned_N_4_C_512_G_32_H_12_W_12);
+      tc::options_GroupNormalization_V100_autotuned_N_4_C_512_G_32_H_12_W_12,
+      tc::options_Moments2_2D_1D_V100_autotuned_N_128_K_2304);
 }
 
 TEST_F(
@@ -181,96 +277,21 @@ TEST_F(
     GroupNormalization_V100_autotuned_N_32_C_512_G_32_H_48_W_48) {
   Init(32, 512, 32, 48, 48);
   runGroupNormalization(
-      tc::options_GroupNormalization_V100_autotuned_N_32_C_512_G_32_H_48_W_48);
-}
-
-// Generic
-TEST_F(GroupNormalization, GroupNormalizationSingleKernel) {
-  Init(FLAGS_N, FLAGS_C, FLAGS_G, FLAGS_H, FLAGS_W);
-  runGroupNormalization(
-      tc::CudaMappingOptions::makeNaiveMappingOptions(),
-      tc::TC_GroupNormalizationSingleKernel_NAME);
-}
-
-// P100 TC
-TEST_F(
-    GroupNormalization,
-    GroupNormalizationSingleKernel_P100_autotuned_N_4_C_512_G_32_H_12_W_12) {
-  Init(4, 512, 32, 12, 12);
-  runGroupNormalization(
-      tc::options_GroupNormalizationSingleKernel_P100_autotuned_N_4_C_512_G_32_H_12_W_12,
-      tc::TC_GroupNormalizationSingleKernel_NAME);
-}
-
-TEST_F(
-    GroupNormalization,
-    GroupNormalizationSingleKernel_P100_autotuned_N_32_C_512_G_32_H_48_W_48) {
-  Init(32, 512, 32, 48, 48);
-  runGroupNormalization(
-      tc::options_GroupNormalizationSingleKernel_P100_autotuned_N_32_C_512_G_32_H_48_W_48,
-      tc::TC_GroupNormalizationSingleKernel_NAME);
-}
-
-// P100 Caffe2
-TEST_F(
-    GroupNormalization,
-    GroupNormalizationSingleKernel_Caffe2_P100_N_4_C_512_G_32_H_12_W_12) {
-  Init(4, 512, 32, 12, 12);
-  runCaffe2GroupNormalization();
-}
-
-TEST_F(
-    GroupNormalization,
-    GroupNormalizationSingleKernel_Caffe2_P100_N_32_C_512_G_32_H_48_W_48) {
-  Init(32, 512, 32, 48, 48);
-  runCaffe2GroupNormalization();
-}
-
-// P100 ATen
-TEST_F(
-    GroupNormalization,
-    GroupNormalizationSingleKernel_ATen_P100_N_4_C_512_G_32_H_12_W_12) {
-  Init(4, 512, 32, 12, 12);
-  runATenGroupNormalization();
-}
-
-TEST_F(
-    GroupNormalization,
-    GroupNormalizationSingleKernel_ATen_P100_N_32_C_512_G_32_H_48_W_48) {
-  Init(32, 512, 32, 48, 48);
-  runATenGroupNormalization();
-}
-
-// V100 TC
-TEST_F(
-    GroupNormalization,
-    GroupNormalizationSingleKernel_V100_autotuned_N_4_C_512_G_32_H_12_W_12) {
-  Init(4, 512, 32, 12, 12);
-  runGroupNormalization(
-      tc::options_GroupNormalizationSingleKernel_V100_autotuned_N_4_C_512_G_32_H_12_W_12,
-      tc::TC_GroupNormalizationSingleKernel_NAME);
-}
-
-TEST_F(
-    GroupNormalization,
-    GroupNormalizationSingleKernel_V100_autotuned_N_32_C_512_G_32_H_48_W_48) {
-  Init(32, 512, 32, 48, 48);
-  runGroupNormalization(
-      tc::options_GroupNormalizationSingleKernel_V100_autotuned_N_32_C_512_G_32_H_48_W_48,
-      tc::TC_GroupNormalizationSingleKernel_NAME);
+      tc::options_GroupNormalization_V100_autotuned_N_32_C_512_G_32_H_48_W_48,
+      tc::options_Moments2_2D_1D_V100_autotuned_N_1024_K_36864);
 }
 
 // V100 Caffe2
 TEST_F(
     GroupNormalization,
-    GroupNormalizationSingleKernel_Caffe2_V100_N_4_C_512_G_32_H_12_W_12) {
+    GroupNormalization_Caffe2_V100_N_4_C_512_G_32_H_12_W_12) {
   Init(4, 512, 32, 12, 12);
   runCaffe2GroupNormalization();
 }
 
 TEST_F(
     GroupNormalization,
-    GroupNormalizationSingleKernel_Caffe2_V100_N_32_C_512_G_32_H_48_W_48) {
+    GroupNormalization_Caffe2_V100_N_32_C_512_G_32_H_48_W_48) {
   Init(32, 512, 32, 48, 48);
   runCaffe2GroupNormalization();
 }
@@ -278,16 +299,57 @@ TEST_F(
 // V100 ATen
 TEST_F(
     GroupNormalization,
-    GroupNormalizationSingleKernel_ATen_V100_N_4_C_512_G_32_H_12_W_12) {
+    GroupNormalization_ATen_V100_N_4_C_512_G_32_H_12_W_12) {
   Init(4, 512, 32, 12, 12);
   runATenGroupNormalization();
 }
 
 TEST_F(
     GroupNormalization,
-    GroupNormalizationSingleKernel_ATen_V100_N_32_C_512_G_32_H_48_W_48) {
+    GroupNormalization_ATen_V100_N_32_C_512_G_32_H_48_W_48) {
   Init(32, 512, 32, 48, 48);
   runATenGroupNormalization();
+}
+
+// Generic
+TEST_F(GroupNormalization, GroupNormalizationSingleKernel) {
+  Init(FLAGS_N, FLAGS_C, FLAGS_G, FLAGS_H, FLAGS_W);
+  runGroupNormalizationSingleKernel(
+      tc::CudaMappingOptions::makeNaiveMappingOptions());
+}
+
+// P100 TC
+TEST_F(
+    GroupNormalization,
+    GroupNormalizationSingleKernel_P100_autotuned_N_4_C_512_G_32_H_12_W_12) {
+  Init(4, 512, 32, 12, 12);
+  runGroupNormalizationSingleKernel(
+      tc::options_GroupNormalizationSingleKernel_P100_autotuned_N_4_C_512_G_32_H_12_W_12);
+}
+
+TEST_F(
+    GroupNormalization,
+    GroupNormalizationSingleKernel_P100_autotuned_N_32_C_512_G_32_H_48_W_48) {
+  Init(32, 512, 32, 48, 48);
+  runGroupNormalizationSingleKernel(
+      tc::options_GroupNormalizationSingleKernel_P100_autotuned_N_32_C_512_G_32_H_48_W_48);
+}
+
+// V100 TC
+TEST_F(
+    GroupNormalization,
+    GroupNormalizationSingleKernel_V100_autotuned_N_4_C_512_G_32_H_12_W_12) {
+  Init(4, 512, 32, 12, 12);
+  runGroupNormalizationSingleKernel(
+      tc::options_GroupNormalizationSingleKernel_V100_autotuned_N_4_C_512_G_32_H_12_W_12);
+}
+
+TEST_F(
+    GroupNormalization,
+    GroupNormalizationSingleKernel_V100_autotuned_N_32_C_512_G_32_H_48_W_48) {
+  Init(32, 512, 32, 48, 48);
+  runGroupNormalizationSingleKernel(
+      tc::options_GroupNormalizationSingleKernel_V100_autotuned_N_32_C_512_G_32_H_48_W_48);
 }
 
 int main(int argc, char** argv) {

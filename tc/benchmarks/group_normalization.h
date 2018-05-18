@@ -19,35 +19,35 @@
 #include "tc/core/cuda/cuda_mapping_options.h"
 
 namespace tc {
+constexpr static auto TC_Moments2_2D_1D_NAME = "moments2_2D_1D";
 constexpr static auto TC_GroupNormalization_NAME = "group_normalization";
 constexpr static auto TC_GroupNormalizationSingleKernel_NAME =
-    "group_normalization_from_sums";
+    "group_normalization_single_kernel";
 constexpr static auto TC_GroupNormalization = R"TC(
+def moments2_2D_1D(float(N, K) I) -> (mean, var)
+{
+# var = E(x^2) - mean^2.
+    mean(n) +=! I(n, r_k)
+     var(n) +=! I(n, r_k) * I(n, r_k)
+    mean(n)  = mean(n) / (K)
+     var(n)  =  var(n) / (K) - mean(n) * mean(n)
+}
+
+def group_normalization(
+    float(N, G, D, H, W) I, float(G, D) gamma, float(G, D) beta,
+    float(N, G) mean, float(N, G) var)
+    -> (O)
+{
+    O(n, g, d, h, w) = gamma(g, d)
+      * ( I(n, g, d, h, w) - mean(n, g) )
+      * rsqrt( var(n, g) + 1e-5 )
+      + beta(g, d)
+}
+
 def group_normalization_single_kernel(
     float(N, G, D, H, W) I, float(G, D) gamma, float(G, D) beta)
     -> (O, sum, sumSquares)
 {
-# This first implementation uses the formula var = E((x - mean)^2).
-# On P100, the autotuner finds a 2.6ms best version
-#   mean(n, g) +=! I(n, g, r_d, r_h, r_w)
-#   mean(n, g)  = mean(n, g) / (D * H * W)
-#    var(n, g) +=! (I(n, g, r_d, r_h, r_w) - mean(n, g))
-#                * (I(n, g, r_d, r_h, r_w) - mean(n, g))
-#    var(n, g)  =  var(n, g) / (D * H * W)
-#   O(n, g, d, h, w) =
-#       gamma(g, d) * (I(n, g, d, h, w) - mean(n, g)) * rsqrt(var(n, g) + 1e-5) + beta(g, d)
-
-# This second implementation uses the formula var = E(x^2) - mean^2.
-# This time, on a P100, the autotuner finds a 1.6ms best version.
-#    mean(n, g) +=! I(n, g, r_d, r_h, r_w)
-#    mean(n,g)   = mean(n,g) / (D * H * W)
-#     var(n, g) +=! I(n, g, r_d, r_h, r_w) * I(n, g, r_d, r_h, r_w)
-#     var(n, g)  =  var(n, g) / (D * H * W) - mean(n,g) * mean(n,g)
-#    O(n, g, d, h, w) = gamma(g, d)
-#      * ( I(n, g, d, h, w) - mean(n, g) )
-#      * rsqrt( var(n, g) + 1e-5 )
-#      + beta(g, d)
-
 # This implementation uses the formula var = E(x^2) - mean^2 and
 # inlining. This gets another 20% on V100.
             sum(n, g) +=! I(n, g, r_d, r_h, r_w)
@@ -59,42 +59,47 @@ def group_normalization_single_kernel(
             + 1e-5 )
       + beta(g, d)
 }
+)TC";
 
-def group_normalization(
-    float(N, G, D, H, W) I, float(G, D) gamma, float(G, D) beta,
-    float(N, G) sum, float(N, G) sumSquares)
-    -> (O, tmp1, tmp2)
-{
-    tmp1(n, g) =        sum(n, g) / (D * H * W)
-    tmp2(n, g) = sumSquares(n, g) / (D * H * W) - sum(n, g) * sum(n, g)
-    O(n, g, d, h, w) = gamma(g, d)
-      * ( I(n, g, d, h, w) - tmp1(n, g) )
-      * rsqrt( tmp2(n, g) + 1e-5 )
-      + beta(g, d)
-}
+auto options_Moments2_2D_1D_P100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
+        .unroll(4)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(32)
+        .mapToBlocks(288, 576)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(false);
 
-def moments2_2D_1D(float(N, K) I) -> (mean, var)
-{
-# var = E(x^2) - mean^2.
-    mean(n) +=! I(n, r_k)
-     var(n) +=! I(n, r_k) * I(n, r_k)
-    mean(n)  = mean(n) / (K)
-     var(n)  =  var(n) / (K) - mean(n) * mean(n)
-}
-
-def group_normalization_from_moments(
-    float(N, G, D, H, W) I, float(G, D) gamma, float(G, D) beta,
-    float(N, G) sum, float(N, G) sumSquares)
-    -> (O, tmp1, tmp2)
-{
-    tmp1(n, g) =        sum(n, g) / (D * H * W)
-    tmp2(n, g) = sumSquares(n, g) / (D * H * W) - sum(n, g) * sum(n, g)
-    O(n, g, d, h, w) = gamma(g, d)
-      * ( I(n, g, d, h, w) - tmp1(n, g) )
-      * rsqrt( tmp2(n, g) + 1e-5 )
-      + beta(g, d)
-}
-  )TC";
+auto options_Moments2_2D_1D_P100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(8, 256, 5)
+        .unroll(16)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(72, 4)
+        .mapToBlocks(288, 8)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
 
 auto options_GroupNormalization_P100_autotuned_N_4_C_512_G_32_H_12_W_12 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
@@ -136,43 +141,87 @@ auto options_GroupNormalization_P100_autotuned_N_32_C_512_G_32_H_48_W_48 =
         .usePrivateMemory(true)
         .unrollCopyShared(false);
 
+auto options_Moments2_2D_1D_V100_autotuned_N_128_K_2304 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(false)
+        .tile(1)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(256)
+        .mapToBlocks(512)
+        .useSharedMemory(true)
+        .usePrivateMemory(true)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(false);
+
+auto options_Moments2_2D_1D_V100_autotuned_N_1024_K_36864 =
+    tc::CudaMappingOptions::makeNaiveMappingOptions()
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
+        .outerScheduleAllowSkewing(false)
+        .outerSchedulePositiveOrthant(true)
+        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleAllowSkewing(false)
+        .intraTileSchedulePositiveOrthant(true)
+        .fixParametersBeforeScheduling(true)
+        .tile(1, 4608)
+        .unroll(32)
+        .tileImperfectlyNested(false)
+        .matchLibraryCalls(true)
+        .mapToThreads(144)
+        .mapToBlocks(288, 512)
+        .useSharedMemory(true)
+        .usePrivateMemory(false)
+        .unrollCopyShared(true)
+        .useReadOnlyCache(false);
+
 auto options_GroupNormalization_V100_autotuned_N_4_C_512_G_32_H_12_W_12 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Preserve3Coincident)
         .outerScheduleAllowSkewing(false)
         .outerSchedulePositiveOrthant(true)
         .intraTileScheduleFusionStrategy(
             tc::FusionStrategy::Preserve3Coincident)
         .intraTileScheduleAllowSkewing(false)
         .intraTileSchedulePositiveOrthant(true)
-        .tile(6, 1, 24)
-        .unroll(16)
+        .fixParametersBeforeScheduling(false)
+        .tile(6, 1, 8)
+        .unroll(2)
         .tileImperfectlyNested(false)
         .matchLibraryCalls(false)
-        .mapToThreads(48, 6)
-        .mapToBlocks(256, 32)
+        .mapToThreads(12, 12, 2)
+        .mapToBlocks(12, 256, 128)
         .useSharedMemory(true)
         .usePrivateMemory(true)
-        .unrollCopyShared(false);
+        .unrollCopyShared(true)
+        .useReadOnlyCache(true);
 
 auto options_GroupNormalization_V100_autotuned_N_32_C_512_G_32_H_48_W_48 =
     tc::CudaMappingOptions::makeNaiveMappingOptions()
-        .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
+        .outerScheduleFusionStrategy(tc::FusionStrategy::Min)
         .outerScheduleAllowSkewing(false)
         .outerSchedulePositiveOrthant(true)
         .intraTileScheduleFusionStrategy(
             tc::FusionStrategy::Preserve3Coincident)
         .intraTileScheduleAllowSkewing(false)
         .intraTileSchedulePositiveOrthant(true)
-        .tile(6, 1, 24)
-        .unroll(16)
+        .fixParametersBeforeScheduling(true)
+        .tile(1, 1, 1)
+        .unroll(4)
         .tileImperfectlyNested(false)
-        .matchLibraryCalls(false)
-        .mapToThreads(48, 6)
-        .mapToBlocks(256, 32)
-        .useSharedMemory(true)
-        .usePrivateMemory(true)
-        .unrollCopyShared(false);
+        .matchLibraryCalls(true)
+        .mapToThreads(16, 16)
+        .mapToBlocks(64, 32, 256)
+        .useSharedMemory(false)
+        .usePrivateMemory(false)
+        .unrollCopyShared(false)
+        .useReadOnlyCache(true);
 
 auto
     options_GroupNormalizationSingleKernel_P100_autotuned_N_4_C_512_G_32_H_12_W_12 =
