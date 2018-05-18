@@ -100,7 +100,8 @@ struct Benchmark : public ::testing::Test {
   using CheckFunction = std::function<bool(
       const std::vector<at::Tensor>& inputs,
       const std::vector<at::Tensor>& outputs)>;
-  using PrologueFunction = std::function<tc::ProfilingInfo()>;
+  using PrologueProfilingFunction = std::function<tc::ProfilingInfo()>;
+  using PrologueUncheckedFunction = std::function<void()>;
   std::vector<at::Tensor> Check(
       const std::string& tc,
       const std::string& name,
@@ -109,11 +110,12 @@ struct Benchmark : public ::testing::Test {
       CheckFunction check_fun =
           [](const std::vector<at::Tensor>& inputs,
              const std::vector<at::Tensor>& outputs) { return true; },
-      PrologueFunction prologue_fun =
+      PrologueProfilingFunction prologue_profiling_fun =
           []() {
             return tc::ProfilingInfo{tc::Duration::zero(),
                                      tc::Duration::zero()};
-          }) {
+          },
+      PrologueUncheckedFunction prologue_unchecked_fun = []() {}) {
     // 1. Compile, run and check
     auto pExecutor =
         tc::aten::compile<tc::CudaBackend>(tc, name, inputs, mappingOptions);
@@ -125,13 +127,13 @@ struct Benchmark : public ::testing::Test {
     std::vector<at::Tensor> outputs2 =
         tc::aten::prepareOutputs(tc, name, inputs);
     RunAndReport(
-        [&pExecutor, &inputs, &outputs2, prologue_fun]() {
-          prologue_fun();
+        [&pExecutor, &inputs, &outputs2, prologue_profiling_fun]() {
+          prologue_profiling_fun();
           tc::aten::run(*pExecutor, inputs, outputs2);
         },
-        [&pExecutor, &inputs, &outputs2, prologue_fun]() {
+        [&pExecutor, &inputs, &outputs2, prologue_profiling_fun]() {
           TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
-          auto prologueTimings = prologue_fun();
+          auto prologueTimings = prologue_profiling_fun();
           TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
           auto timings = tc::aten::profile(*pExecutor, inputs, outputs2);
           TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
@@ -143,10 +145,10 @@ struct Benchmark : public ::testing::Test {
         [&pExecutor, &inputs, &outputs2]() {
           tc::aten::run(*pExecutor, inputs, outputs2);
         },
-        [&pExecutor, &inputs, &outputs2, prologue_fun]() {
+        [&pExecutor, &inputs, &outputs2, prologue_unchecked_fun]() {
           TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
           auto start(std::chrono::system_clock::now());
-          prologue_fun();
+          prologue_unchecked_fun();
           tc::aten::uncheckedRun(*pExecutor, inputs, outputs2);
           TC_CUDA_RUNTIMEAPI_ENFORCE(cudaDeviceSynchronize());
           return tc::Duration::since(start);

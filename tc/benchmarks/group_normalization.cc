@@ -119,8 +119,12 @@ std::vector<at::Tensor> GroupNormalization::runGroupNormalization(
       tc::TC_Moments2_2D_1D_NAME,
       {I.view({N * G, D * H * W})});
   tc::aten::run(*pExecutorMoments, {I.view({N * G, D * H * W})}, outputs);
-  auto computeMoments = [&I, &outputs, &pExecutorMoments, this]() {
+  auto profileMoments = [&I, &outputs, &pExecutorMoments, this]() {
     return tc::aten::profile(
+        *pExecutorMoments, {I.view({N * G, D * H * W})}, outputs);
+  };
+  auto uncheckedRunMoments = [&I, &outputs, &pExecutorMoments, this]() {
+    tc::aten::uncheckedRun(
         *pExecutorMoments, {I.view({N * G, D * H * W})}, outputs);
   };
   return Check(
@@ -129,7 +133,8 @@ std::vector<at::Tensor> GroupNormalization::runGroupNormalization(
       bestOptions[0],
       inputs,
       check_fun,
-      computeMoments);
+      profileMoments,
+      uncheckedRunMoments);
 }
 
 std::vector<at::Tensor> GroupNormalization::runGroupNormalizationSingleKernel(

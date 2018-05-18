@@ -188,19 +188,18 @@ auto options_MLP3_V100_autotuned_B_128_N_128_O_64_P_32_Q_2 =
         .outerScheduleFusionStrategy(tc::FusionStrategy::Max)
         .outerScheduleAllowSkewing(false)
         .outerSchedulePositiveOrthant(true)
-        .intraTileScheduleFusionStrategy(tc::FusionStrategy::Min)
+        .intraTileScheduleFusionStrategy(
+            tc::FusionStrategy::Preserve3Coincident)
         .intraTileScheduleAllowSkewing(false)
         .intraTileSchedulePositiveOrthant(true)
-        .fixParametersBeforeScheduling(false)
-        .tile(4)
-        .unroll(1)
-        .tileImperfectlyNested(false)
-        .matchLibraryCalls(true)
+        .tile(4, 8)
         .mapToThreads(128, 4)
-        .mapToBlocks(64, 256)
+        .mapToBlocks(128)
+        .unroll(2)
+        .tileImperfectlyNested(false)
         .useSharedMemory(true)
-        .usePrivateMemory(true)
-        .unrollCopyShared(false)
-        .useReadOnlyCache(true);
+        .usePrivateMemory(false)
+        .unrollCopyShared(true)
+        .matchLibraryCalls(false);
 
 } // namespace tc
