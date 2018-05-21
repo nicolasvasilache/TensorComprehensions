@@ -14,6 +14,10 @@ endif()
 
 project (TensorComprehensions C CXX)
 
+# Python integration requires shared libraries and TC is static
+# So build with -fPIC
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Display compiler flags for build modes: Release/Debug
 message(STATUS "BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 message(STATUS "CMAKE_CXX_COMPILER_VERSION is ${CMAKE_CXX_COMPILER_VERSION}")
@@ -93,13 +97,6 @@ endif()
 
 # pybind11
 include_directories(third-party/pybind11)
-
-# isl
-find_path(ISL_INCLUDE_DIR NAMES isl)
-include_directories(${ISL_INCLUDE_DIR})
-message(STATUS "PROJECT_SOURCE_DIR: ${PROJECT_SOURCE_DIR}")
-find_library(ISL_LIBRARIES isl PATHS ${CMAKE_INSTALL_PREFIX} PATH_SUFFIXES lib lib64)
-message(STATUS "Found isl: ${ISL_LIBRARIES}")
 
 # dlpack
 find_path(ISL_INCLUDE_DIR NAMES dlpack)

@@ -7,7 +7,7 @@
 add_library(
   tc_core
 
-  SHARED
+  STATIC
 
   flags.cc
   mapping_options.cc
@@ -60,7 +60,7 @@ install(
 add_library(
   tc_core_cpu
 
-  SHARED
+  STATIC
 
   cpu/cpu_tc_executor.cc
   cpu/cpu_mapping_options.cc
@@ -108,7 +108,7 @@ set(TC_CUDA_CROSS_COMPILE_FILES
 add_library(
   tc_core_cuda_no_sdk
 
-  SHARED
+  STATIC
 
   ${TC_CUDA_CROSS_COMPILE_FILES}
 )
@@ -149,7 +149,7 @@ if (WITH_CUDA)
   add_library(
     tc_cuda
 
-    SHARED
+    STATIC
 
     ${TC_CUDA_CROSS_COMPILE_FILES}
 

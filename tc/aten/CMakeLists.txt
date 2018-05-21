@@ -7,7 +7,7 @@
 add_library(
   tc_aten
 
-  SHARED
+  STATIC
 
   aten_compiler.cc
 )

@@ -2,6 +2,8 @@
 add_library(
   tc_c2
 
+  # Caffe2 Op registration seems to be related to dlopen.
+  # As much as we'd like to make this static we can't
   SHARED
 
   operator_meta.cc
