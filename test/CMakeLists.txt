@@ -4,23 +4,11 @@ include_directories(../tc)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 ################################################################################
-# Don't ask ... TODO: cleanup gtest
-################################################################################
-include_directories(${PROJECT_SOURCE_DIR}/third-party/googletest/googletest/include)
-set(GTEST_LIBS gtest gtest_main)
-
-set(GOOGLE_LIBS ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES} ${GTEST_LIBS})
-
-################################################################################
-# Finally, add tests
-################################################################################
-
-################################################################################
 # Basic tests of external functionalities we rely upon
 ################################################################################
 add_executable(test_basic test_basic.cc)
 add_test(test_basic test_basic)
-target_link_libraries(test_basic ${GOOGLE_LIBS} isl-static ${ATEN_LIBRARIES})
+target_link_libraries(test_basic gtest gflags glog isl-static ${ATEN_LIBRARIES})
 
 ################################################################################
 # Core library only tests
@@ -34,7 +22,7 @@ set(CORE_TEST_FILES
 foreach(i ${CORE_TEST_FILES})
   add_executable(${i} ${i}.cc)
   add_test(${i} ${i})
-  target_link_libraries(${i} ${GOOGLE_LIBS} tc_core)
+  target_link_libraries(${i} gtest tc_core)
 endforeach()
 
 ################################################################################
@@ -48,7 +36,7 @@ set(CORE_TEST_FILES
 foreach(i ${CORE_TEST_FILES})
   add_executable(${i} ${i}.cc)
   add_test(${i} ${i})
-  target_link_libraries(${i} ${GOOGLE_LIBS} tc_core_cuda_no_sdk)
+  target_link_libraries(${i} gtest tc_core_cuda_no_sdk)
 endforeach()
 
 ################################################################################
@@ -59,7 +47,7 @@ add_test(test_mapper_llvm test_mapper_llvm)
 target_link_libraries(
   test_mapper_llvm
 
-  ${GOOGLE_LIBS}
+  gtest
   ${ATEN_LIBRARIES}
   -lLLVM
 
@@ -71,7 +59,7 @@ if (WITH_TAPIR)
   target_link_libraries(
     test_mapper_tapir
 
-    ${GOOGLE_LIBS}
+    gtest
     ${ATEN_LIBRARIES}
     -lLLVM
 
@@ -90,7 +78,7 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/lang)
 foreach(i ${TEST_TC_FILES})
   add_executable(${i} ${i}.cc)
   add_test(${i} ${i})
-  target_link_libraries(${i} ${GOOGLE_LIBS} pthread tc_lang)
+  target_link_libraries(${i} gtest pthread tc_lang)
 endforeach()
 
 if (WITH_CUDA)

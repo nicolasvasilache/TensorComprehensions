@@ -37,6 +37,8 @@ target_include_directories(tc_core PUBLIC ${LLVM_INCLUDE_DIRS})
 target_link_libraries(
   tc_core
 
+  gflags
+  glog
   ${HALIDE_LIBRARIES}
   isl-static
   -lLLVM

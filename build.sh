@@ -41,20 +41,6 @@ then
     clean="1"
 fi
 
-gflags=""
-if [[ $* == *--gflags* ]]
-then
-    echo "Building GFlags"
-    gflags="1"
-fi
-
-glog=""
-if [[ $* == *--glog* ]]
-then
-    echo "Building Glog"
-    glog="1"
-fi
-
 aten=""
 if [[ $* == *--aten* ]]
 then
@@ -160,56 +146,6 @@ function should_rebuild() {
             true
         fi
     fi
-}
-
-function install_gflags() {
-  mkdir -p ${TC_DIR}/third-party/gflags/build || exit 1
-  cd       ${TC_DIR}/third-party/gflags/build || exit 1
-
-  if ! test ${USE_CONTBUILD_CACHE} || [ ! -d "${INSTALL_PREFIX}/include/gflags" ]; then
-
-      if should_rebuild ${TC_DIR}/third-party/gflags ${TC_DIR}/third-party/.gflags_build_cache; then
-          echo "Installing Gflags"
-
-          if should_reconfigure .. .build_cache; then
-              echo "Reconfiguring GFlags"
-              VERBOSE=${VERBOSE} ${CMAKE_VERSION} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DGFLAGS_BUILD_SHARED_LIBS=ON -DGFLAGS_BUILD_STATIC_LIBS=OFF -DGFLAGS_BUILD_TESTING=ON -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} ..  || exit 1
-          fi
-          make -j $CORES -s || exit 1
-
-          set_cache .. .build_cache
-          set_bcache ${TC_DIR}/third-party/gflags ${TC_DIR}/third-party/.gflags_build_cache
-      fi
-
-      make install -j $CORES -s || exit 1
-      echo "Successfully installed GFlags"
-
-  fi
-}
-
-function install_glog() {
-  mkdir -p ${TC_DIR}/third-party/glog/build || exit 1
-  cd       ${TC_DIR}/third-party/glog/build || exit 1
-
-  if ! test ${USE_CONTBUILD_CACHE} || [ ! -d "${INSTALL_PREFIX}/include/glog" ]; then
-
-      if should_rebuild ${TC_DIR}/third-party/glog ${TC_DIR}/third-party/.glog_build_cache; then
-          echo "Installing Glog"
-
-          if should_reconfigure .. .build_cache; then
-              echo "Reconfiguring Glog"
-              VERBOSE=${VERBOSE} ${CMAKE_VERSION} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=ON -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_DEBUG_POSTFIX="" ..  || exit 1
-          fi
-          make -j $CORES -s || exit 1
-
-          set_cache .. .build_cache
-          set_bcache ${TC_DIR}/third-party/glog ${TC_DIR}/third-party/.glog_build_cache
-      fi
-
-      CMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} make install -j $CORES -s || exit 1
-      echo "Successfully installed Glog"
-
-  fi
 }
 
 function install_aten() {
@@ -432,24 +368,6 @@ function install_halide() {
 
   fi
 }
-
-if ! test -z $gflags || ! test -z $all; then
-  if [[ ! -z "$CONDA_PREFIX" && $(find $CONDA_PREFIX -name libgflags.so) ]]; then
-      echo "gflags found"
-  else
-      echo "no files found"
-      install_gflags
-  fi
-fi
-
-if ! test -z $glog || ! test -z $all; then
-    if [[ ! -z "$CONDA_PREFIX" && $(find $CONDA_PREFIX -name libglog.so) ]]; then
-        echo "glog found"
-    else
-        echo "no files found"
-        install_glog
-    fi
-fi
 
 if ! test -z $aten || ! test -z $all; then
     if python -c "import torch" &> /dev/null; then

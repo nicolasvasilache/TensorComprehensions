@@ -12,26 +12,9 @@ else()
   set(CMAKE_CXX_STANDARD 11)
 endif()
 
-project (TensorComprehensions C CXX)
-
-# Python integration requires shared libraries and TC is static
-# So build with -fPIC
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# Build third-party
-set(ISL_INT gmp)
-include_directories(${PROJECT_SOURCE_DIR}/third-party/islpp/include)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/third-party/islpp/include)
-add_subdirectory(third-party/islpp)
-
 # Display compiler flags for build modes: Release/Debug
 message(STATUS "BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 message(STATUS "CMAKE_CXX_COMPILER_VERSION is ${CMAKE_CXX_COMPILER_VERSION}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-if(NOT CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.4")
-  # we officially support these compiler flags for compiler version 5.4 or less
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Werror -Wno-sign-compare")
-endif()
 message(STATUS "CMAKE_CXX_FLAGS is ${CMAKE_CXX_FLAGS}")
 if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
   set(CMAKE_CXX_FLAGS_DEBUG "-g")
@@ -42,6 +25,50 @@ elseif(${CMAKE_BUILD_TYPE} MATCHES "Release")
 endif()
 message(STATUS "CMAKE_INSTALL_PREFIX is ${CMAKE_INSTALL_PREFIX}")
 
+project (TensorComprehensions C CXX)
+
+# Python integration requires shared libraries and TC is static
+# So build with -fPIC
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+################################################################################
+# Build third-party
+################################################################################
+# Google Libraries
+set(GFLAGS_BUILD_SHARED_LIBS OFF)
+set(GFLAGS_BUILD_STATIC_LIBS ON)
+set(GFLAGS_BUILD_gflags_LIB ON)
+set(GFLAGS_BUILD_gflags_nothreads_LIB ON)
+add_subdirectory(third-party/googlelibraries/gflags)
+include_directories(${gflags_BINARY_DIR}/include)
+
+set(gflags_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/gflags)
+add_subdirectory(third-party/googlelibraries/glog)
+include_directories(${glog_BINARY_DIR})
+
+set(BUILD_GMOCK OFF)
+set(BUILD_GTEST ON)
+add_subdirectory(third-party/googlelibraries/googletest)
+
+# ISL
+set(ISL_INT gmp)
+include_directories(${PROJECT_SOURCE_DIR}/third-party/islpp/include)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/third-party/islpp/include)
+add_subdirectory(third-party/islpp)
+
+################################################################################
+# Done building third-party, set -Wall -Werror
+################################################################################
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+if(NOT CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.4")
+  # we officially support these compiler flags for compiler version 5.4 or less
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Werror -Wno-sign-compare")
+endif()
+
+
+
+
+# Pybind
 add_subdirectory(third-party/pybind11)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTC_DIR=\"\\\"${TC_DIR}\\\"\" ")
@@ -51,10 +78,6 @@ message(STATUS "Looking for LLVM in ${LLVM_DIR}")
 find_package(LLVM REQUIRED LLVM)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
-if (NOT TARGET gtest)
-add_subdirectory(third-party/googletest)
-endif()
 
 # RPATH - how to properly handle rpath https://cmake.org/Wiki/CMake_RPATH_handling
 # RPATH - a list of directories which is linked into the executable, supported on most UNIX systems.
@@ -111,10 +134,6 @@ include_directories(${DLPACK_INCLUDE_DIR})
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 execute_process(COMMAND ${CLANG_PREFIX}/bin/llvm-config --libdir  OUTPUT_VARIABLE LLVM_LIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
 link_directories(${LLVM_LIBDIR})
-
-# protobuf
-# TODO: check if this respects CMAKE_PREFIX_PATH
-find_package(Protobuf REQUIRED)
 
 ################################################################################
 
@@ -226,23 +245,6 @@ message("include(cmake/GetGitRevisionDescription.cmake)")
 include(cmake/GetGitRevisionDescription.cmake)
 
 ################################################################################
-
-# gflags
-message("Looking for gflags...")
-find_library(GFLAGS_LIBRARIES gflags HINTS ${CMAKE_INSTALL_PREFIX} PATH_SUFFIXES lib lib64)
-message(STATUS "Found gflags: ${GFLAGS_LIBRARIES}")
-
-# glog
-# For some reason, the world wants to redefine the glog macros with the same
-# name. For now, we use glog everywhere, also force DMLC/CAFFE2  to use glog
-add_definitions(-DDMLC_USE_GLOG)
-if (WITH_CAFFE2)
-  add_definitions(-DCAFFE2_USE_GOOGLE_GLOG)
-endif()
-
-find_library(GLOG_LIBRARIES glog HINTS ${CMAKE_INSTALL_PREFIX} PATH_SUFFIXES lib lib64)
-message(STATUS "Found glog: ${GLOG_LIBRARIES}")
-
 # Uncomment for debugging all the CMake variables
 # get_cmake_property(_variableNames VARIABLES)
 # foreach (_variableName ${_variableNames})

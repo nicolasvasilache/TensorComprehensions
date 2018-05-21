@@ -3,21 +3,6 @@ include_directories(..)
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-# Needed to ensure reproducibility (proper cublas version) via call to
-# cublasGetVersion_v2.
-find_library(CUDA_CUBLAS_LIBRARIES cublas
-  PATHS ${CUDA_TOOLKIT_ROOT_DIR}
-  PATH_SUFFIXES lib lib64 targets/x86_64-linux/lib targets/x86_64-linux/lib/stubs)
-find_library(CUDA_CUDNN_LIBRARIES cudnn
-  PATHS ${CUDNN_ROOT_DIR} ${CUDA_TOOLKIT_ROOT_DIR}
-  PATH_SUFFIXES lib lib64)
-
-################################################################################
-# Don't ask ... TODO: cleanup gtest
-################################################################################
-include_directories(${PROJECT_SOURCE_DIR}/third-party/googletest/googletest/include)
-set(GTEST_LIBS gtest gtest_main)
-
 ################################################################################
 # Examples
 ################################################################################
