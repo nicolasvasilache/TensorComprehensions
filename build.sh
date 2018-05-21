@@ -69,13 +69,6 @@ then
     caffe2="1"
 fi
 
-isl=""
-if [[ $* == *--isl* ]]
-then
-    echo "Building ISL"
-    isl="1"
-fi
-
 dlpack=""
 if [[ $* == *--dlpack* ]]
 then
@@ -294,32 +287,6 @@ function install_caffe2() {
   fi
 }
 
-function install_isl() {
-  mkdir -p ${TC_DIR}/third-party/islpp/build || exit 1
-  cd       ${TC_DIR}/third-party/islpp/build || exit 1
-
-  if ! test ${USE_CONTBUILD_CACHE} || [ ! -d "${INSTALL_PREFIX}/include/isl" ]; then
-
-  if should_rebuild ${TC_DIR}/third-party/islpp ${TC_DIR}/third-party/.islpp_build_cache; then
-  echo "Installing ISL"
-
-  if should_reconfigure .. .build_cache; then
-    echo "Reconfiguring ISL"
-    rm -rf * || exit 1
-    VERBOSE=${VERBOSE} ${CMAKE_VERSION} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DISL_INT=gmp -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX} ..
-  fi
-  make -j $CORES -s || exit 1
-
-  set_cache .. .build_cache
-  set_bcache ${TC_DIR}/third-party/islpp ${TC_DIR}/third-party/.islpp_build_cache
-  fi
-
-  make install -j $CORES -s || exit 1
-  echo "Successfully installed isl"
-
-  fi
-}
-
 function install_dlpack() {
   mkdir -p ${TC_DIR}/third-party/dlpack/build || exit 1
   cd       ${TC_DIR}/third-party/dlpack/build || exit 1
@@ -500,15 +467,6 @@ if ! test -z $caffe2 || ! test -z $all ; then
             echo "no files found"
             install_caffe2
         fi
-    fi
-fi
-
-if ! test -z $isl || ! test -z $all; then
-    if [[ ! -z "$CONDA_PREFIX" && $(find $CONDA_PREFIX -name libisl.so) ]]; then
-        echo "isl found"
-    else
-        echo "no files found"
-        install_isl
     fi
 fi
 

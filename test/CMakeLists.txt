@@ -20,7 +20,7 @@ set(GOOGLE_LIBS ${GFLAGS_LIBRARIES} ${GLOG_LIBRARIES} ${GTEST_LIBS})
 ################################################################################
 add_executable(test_basic test_basic.cc)
 add_test(test_basic test_basic)
-target_link_libraries(test_basic ${GOOGLE_LIBS} ${ISL_LIBRARIES} ${ATEN_LIBRARIES})
+target_link_libraries(test_basic ${GOOGLE_LIBS} isl-static ${ATEN_LIBRARIES})
 
 ################################################################################
 # Core library only tests

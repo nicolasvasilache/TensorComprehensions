@@ -38,7 +38,7 @@ target_link_libraries(
   tc_core
 
   ${HALIDE_LIBRARIES}
-  ${ISL_LIBRARIES}
+  isl-static
   -lLLVM
 
   tc_lang
@@ -74,7 +74,6 @@ target_link_libraries(
   tc_core_cpu
 
   ${HALIDE_LIBRARIES}
-  ${ISL_LIBRARIES}
   -lLLVM
 
   tc_lang
@@ -121,7 +120,6 @@ target_link_libraries(
   tc_core_cuda_no_sdk
 
   ${HALIDE_LIBRARIES}
-  ${ISL_LIBRARIES}
   -lLLVM
 
   tc_lang
@@ -166,7 +164,6 @@ if (WITH_CUDA)
     ${CUDA_curand_LIBRARY}
     ${CUDA_LIBRARIES}
     ${CUDA_NVRTC_LIBRARIES}
-    ${ISL_LIBRARIES}
 
     tc_lang
     tc_version

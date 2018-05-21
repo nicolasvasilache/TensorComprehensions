@@ -18,6 +18,12 @@ project (TensorComprehensions C CXX)
 # So build with -fPIC
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Build third-party
+set(ISL_INT gmp)
+include_directories(${PROJECT_SOURCE_DIR}/third-party/islpp/include)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/third-party/islpp/include)
+add_subdirectory(third-party/islpp)
+
 # Display compiler flags for build modes: Release/Debug
 message(STATUS "BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 message(STATUS "CMAKE_CXX_COMPILER_VERSION is ${CMAKE_CXX_COMPILER_VERSION}")
