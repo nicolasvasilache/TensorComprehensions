@@ -1,48 +1,8 @@
 # How to build conda package for Tensor Comprehensions and its dependencies
 
-## Building Conda Packages inside TC nvidia-docker image
+## Building conda packages
 
-We have a runtime nvidia docker image for TC to build conda packages and run all
-tests including gpu ones. To build the packages, follow the below commands:
-
-```Shell
-# Build a new nvidia docker image
-cd TensorComprehensions/conda_recipes
-docker build -t trusty-gcc4.8-py3-conda-cuda:2 .
-```
-
-Now, we have the docker image built, we will run it by following command:
-
-```Shell
-nvidia-docker run --rm -i -t trusty-gcc4.8-py3-conda-cuda:2
-```
-
-Once you are inside the docker image, run `nvidia-smi` and verify that you have
-gpus access. Now, you are good to go and build conda packages. For that run the
-following command:
-
-```Shell
-cd TensorComprehensions/conda_recipes
-./conda_build_tc.sh
-```
-
-Sit back, relax and let the packages build. If you see any errors in packages, fix them.
-
-## Building conda packages outside docker image
-
-Steps:
-1. You need to have conda installed. Follow the instructions in [dockerfile](https://github.com/facebookresearch/TensorComprehensions/tree/master/docker/linux-trusty-gcc4.8-cuda8-cudnn6-py3-conda) for how to install conda
-
-*NOTE*: Make sure that conda get download things from web and you might need some
-proxy-setup. You can add following lines to your `~/.condarc` file
-
-```
-proxy_servers:
-  http: <http_proxy_to_use>
-  https: <https_proxy_to_use>
-```
-
-2. Next install conda build
+1. Install conda build
 
 ```Shell
 conda install conda-build
@@ -51,9 +11,9 @@ conda install conda-build
 This installs a bunch of dependencies like patchelf, glob, pkginfo, conda-verify.
 When prompted, say yes to install these dependencies.
 
-3. While building conda packaged, we might have some third-party dependencies for which we want to install the conda package available on [conda-forge](https://github.com/conda-forge/feedstocks). In order to install packages from conda-forge, we need to add conda-forge to the conda channels by running the following command
+2. While building conda packaged, we might have some third-party dependencies for which we want to install the conda package available on [conda-forge](https://github.com/conda-forge/feedstocks). In order to install packages from conda-forge, we need to add conda-forge to the conda channels by running the following command
 
-We will add `soumith` channel since we will get pytorch from there. Channels are prioritized in the order they were added.
+We will add the `pytorch` channel since we will get pytorch from there. Channels are prioritized in the order they were added.
 
 ```Shell
 conda config --add channels conda-forge
@@ -63,7 +23,7 @@ conda config --add channels pytorch
 For example: this is required for the libgmp dependency of ISL and we can get
 conda package of libgmp from conda-forge
 
-4. Now create a Python 3.6 conda environment for packaging TC by following below
+3. Now create a Python 3.6 conda environment for packaging TC by following below
 instructions:
 
 ```Shell
@@ -79,17 +39,12 @@ source activate tc_build
 source deactivate
 ```
 
-5. Now, we have conda setup, we are ready to build conda package for TC. For this,
+4. Now, we have conda setup, we are ready to build conda package for TC. For this,
 since TC has its dependencies that are linked dynamically, we will build conda
-packages for them separately. In short, we need to build packages for `clang+llvm-tapir5.0`, `gflags`, `glog`, `Halide`, TC version of `isl`, TC version of `protobuf`, and finally `Tensor Comprehensions`.
+packages for them separately. In short, we need to build packages for `clang+llvm-tapir5.0`, `Halide` and finally `Tensor Comprehensions`.
 
 For building each package, we need to specify a `build version`, `build number` and
 `git hash`. This information is used to build each package.
-
-If you ever want to build new packages corresponding to new git hashes for example
-when submodules are bumped, you will need to build conda package for submodule
-with the new git hash. For that, all you need to do is change the build version,
-number and git hash.
 
 Now, we will go ahead and build the conda package of TC and all of its dependencies. For that, run the command below:
 

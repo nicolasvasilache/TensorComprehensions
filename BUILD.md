@@ -20,8 +20,8 @@ conda create -y --name tc_build python=3.6
 conda activate tc_build
 conda install -y gflags glog gtest protobuf
 conda install -y pyyaml mkl-include
-conda install -yc conda-forge pytest
-conda install pytorch torchvision cuda90 -c pytorch
+conda install -y pytest
+conda install pytorch torchvision cuda90
 ```
 
 # Activate preinstalled conda in your current terminal
