@@ -56,6 +56,30 @@ include_directories(${PROJECT_SOURCE_DIR}/third-party/islpp/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/third-party/islpp/include)
 add_subdirectory(third-party/islpp)
 
+# ATen
+execute_process(COMMAND which python OUTPUT_VARIABLE __python OUTPUT_STRIP_TRAILING_WHITESPACE)
+message(STATUS "PYTHON output: \n${__python}")
+# run the import torch command, if torch is installed it returns 0 otherwise error
+execute_process(COMMAND "${__python}" "-c" "import torch;" RESULT_VARIABLE __torch_install OUTPUT_STRIP_TRAILING_WHITESPACE)
+message(STATUS "IMPORTING TORCH: \n${__torch_install}")
+# also get the site-packages path where conda installs pytorch
+execute_process(COMMAND "python" "-c"
+    "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
+    OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
+message(STATUS "PYTHON site packages: \n${PYTHON_SITE_PACKAGES}")
+message(STATUS "TORCH INSTALLED, linking to ATen from PyTorch")
+set(ATEN_INCLUDE_DIR "${PYTHON_SITE_PACKAGES}/torch/lib/include")
+include_directories(${ATEN_INCLUDE_DIR})
+find_library(ATEN_LIBRARIES NAMES libATen.so PATHS ${PYTHON_SITE_PACKAGES}/torch/lib)
+link_directories("${PYTHON_SITE_PACKAGES}/../../")
+message(STATUS "Found ATen.so file: ${ATEN_LIBRARIES}")
+
+#message(STATUS "Finding ATen")
+#find_path(ATEN_INCLUDE_DIR NAMES ATen PATHS ${CMAKE_INSTALL_PREFIX}/include NO_DEFAULT_PATH)
+#include_directories(${ATEN_INCLUDE_DIR})
+#find_library(ATEN_LIBRARIES NAMES ATen PATHS ${CMAKE_INSTALL_PREFIX} PATH_SUFFIXES lib lib64)
+#message(STATUS "Found ATen.so file: ${ATEN_LIBRARIES}")
+
 ################################################################################
 # Done building third-party, set -Wall -Werror
 ################################################################################
@@ -183,60 +207,6 @@ message(STATUS "HALIDE_INCLUDE_DIRS: ${HALIDE_INCLUDE_DIR}")
 include_directories(${HALIDE_INCLUDE_DIR})
 find_library(HALIDE_LIBRARIES NAMES Halide PATHS ${CMAKE_INSTALL_PREFIX} PATH_SUFFIXES lib lib64)
 message(STATUS "Found Halide.so file: ${HALIDE_LIBRARIES}")
-
-################################################################################
-
-# Caffe2
-if (WITH_CAFFE2)
-  # eigen - needed inside Caffe2 only
-  # Caffe2 probably used its bundled Eigen (which it didn't install) in this case.
-  message(WARNING "Couldn't find Eigen headers, assuming caffe2 used in-tree headers")
-  include_directories(third-party/caffe2/third_party/eigen)
-
-  find_path(CAFFE2_INCLUDE_DIR NAMES caffe2)
-  include_directories(SYSTEM ${CAFFE2_INCLUDE_DIR})
-  find_library(CAFFE2_CPU_LIBRARIES NAMES caffe2 PATHS ${CMAKE_INSTALL_PREFIX} PATH_SUFFIXES lib lib64)
-  message(STATUS "Found Caffe2_CPU: ${CAFFE2_CPU_LIBRARIES}")
-  if (WITH_CUDA)
-    find_library(CAFFE2_GPU_LIBRARIES NAMES caffe2_gpu PATHS ${CMAKE_INSTALL_PREFIX} PATH_SUFFIXES lib lib64)
-    message(STATUS "Found Caffe2_GPU: ${CAFFE2_GPU_LIBRARIES}")
-  endif()
-else()
-  message(STATUS "Caffe2 installation is turned off")
-endif()
-
-################################################################################
-# ATen
-# first find python path
-execute_process(COMMAND which python OUTPUT_VARIABLE __python OUTPUT_STRIP_TRAILING_WHITESPACE)
-message(STATUS "PYTHON output: \n${__python}")
-
-# run the import torch command, if torch is installed it returns 0 otherwise error
-execute_process(COMMAND "${__python}" "-c" "import torch;" RESULT_VARIABLE __torch_install OUTPUT_STRIP_TRAILING_WHITESPACE)
-message(STATUS "IMPORTING TORCH: \n${__torch_install}")
-
-# also get the site-packages path where conda installs pytorch
-execute_process(COMMAND "python" "-c"
-    "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
-    OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
-message(STATUS "PYTHON site packages: \n${PYTHON_SITE_PACKAGES}")
-
-# if PyTorch is installed, we get libATen.so from there, otherwise build it
-if (__torch_install EQUAL 0)
-  message(STATUS "TORCH INSTALLED, linking to ATen from PyTorch")
-  set(ATEN_INCLUDE_DIR "${PYTHON_SITE_PACKAGES}/torch/lib/include")
-  include_directories(${ATEN_INCLUDE_DIR})
-  find_library(ATEN_LIBRARIES NAMES libATen.so PATHS ${PYTHON_SITE_PACKAGES}/torch/lib)
-  link_directories("${PYTHON_SITE_PACKAGES}/../../")
-  message(STATUS "Found ATen.so file: ${ATEN_LIBRARIES}")
-else()
-  message(STATUS "TORCH NOT INSTALLED, linking to ATen separately")
-  message(STATUS "Finding ATen")
-  find_path(ATEN_INCLUDE_DIR NAMES ATen)
-  include_directories(${ATEN_INCLUDE_DIR})
-  find_library(ATEN_LIBRARIES NAMES ATen PATHS ${CMAKE_INSTALL_PREFIX} PATH_SUFFIXES lib lib64)
-  message(STATUS "Found ATen.so file: ${ATEN_LIBRARIES}")
-endif()
 
 ################################################################################
 

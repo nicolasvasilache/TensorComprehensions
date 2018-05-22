@@ -15,7 +15,6 @@ if [ "${WITH_CUDA,,}" = "off" -o "${WITH_CUDA,,}" = "no" -o "${WITH_CUDA}" = "0"
 else
   ATEN_NO_CUDA=${ATEN_NO_CUDA:=0}
 fi
-WITH_PYTHON_C2=${WITH_PYTHON_C2:=OFF}
 WITH_NNPACK=${WITH_NNPACK:=OFF}
 WITH_TAPIR=${WITH_TAPIR:=ON}
 PYTHON=${PYTHON:="`which python3`"}
@@ -23,7 +22,6 @@ PROTOC=${PROTOC:="`which protoc`"}
 CORES=${CORES:=32}
 VERBOSE=${VERBOSE:=0}
 CMAKE_VERSION=${CMAKE_VERSION:="`which cmake3 || which cmake`"}
-CAFFE2_BUILD_CACHE=${CAFFE2_BUILD_CACHE:=${TC_DIR}/third-party/.caffe2_build_cache}
 HALIDE_BUILD_CACHE=${HALIDE_BUILD_CACHE:=${TC_DIR}/third-party/.halide_build_cache}
 INSTALL_PREFIX=${INSTALL_PREFIX:=${TC_DIR}/third-party-install/}
 CCACHE_WRAPPER_DIR=${CCACHE_WRAPPER_DIR:=/usr/local/bin/}
@@ -39,20 +37,6 @@ if [[ $* == *--clean* ]]
 then
     echo "Forcing clean"
     clean="1"
-fi
-
-aten=""
-if [[ $* == *--aten* ]]
-then
-    echo "Building ATen"
-    aten="1"
-fi
-
-caffe2=""
-if [[ $* == *--caffe2* ]]
-then
-    echo "Building Caffe2"
-    caffe2="1"
 fi
 
 dlpack=""
@@ -146,81 +130,6 @@ function should_rebuild() {
             true
         fi
     fi
-}
-
-function install_aten() {
-  mkdir -p ${TC_DIR}/third-party/pytorch/aten/build || exit 1
-  cd       ${TC_DIR}/third-party/pytorch/aten/build || exit 1
-
-  if ! test ${USE_CONTBUILD_CACHE} || [ ! -d "${INSTALL_PREFIX}/include/ATen" ]; then
-
-    if test ${USE_CONTBUILD_CACHE}; then
-        echo "Setting compute-arch to 5.0 for ATen build"
-        export TORCH_NVCC_FLAGS="-Xfatbin -compress-all"
-        export TORCH_CUDA_ARCH_LIST="5.0"
-        echo ${TORCH_NVCC_FLAGS}
-        echo ${TORCH_CUDA_ARCH_LIST}
-    fi
-
-    # ATen errors out when using many threads for building - use 1 core for now
-    if should_rebuild ${TC_DIR}/third-party/pytorch/aten ${TC_DIR}/third-party/.aten_build_cache; then
-      echo "Installing ATen"
-
-      if should_reconfigure .. .build_cache; then
-        echo "Reconfiguring ATen"
-        export PYTORCH_PYTHON=${PYTHON}
-        ${CMAKE_VERSION} .. -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DHAS_C11_ATOMICS=OFF -DNO_CUDA=${ATEN_NO_CUDA} -DCMAKE_CXX_COMPILER=${CXX} -DCMAKE_C_COMPILER=${CC} -DCUDNN_ROOT_DIR=${CUDNN_ROOT_DIR}
-      fi
-      make -j $CORES -s || exit 1
-
-      set_cache .. .build_cache
-      set_bcache ${TC_DIR}/third-party/pytorch/aten ${TC_DIR}/third-party/.aten_build_cache
-    fi
-
-    make install -j $CORES -s || exit 1
-    echo "Successfully installed ATen"
-
-  fi
-}
-
-function install_caffe2() {
-  mkdir -p ${TC_DIR}/third-party/caffe2/build || exit 1
-  cd       ${TC_DIR}/third-party/caffe2/build || exit 1
-
-  if ! test ${USE_CONTBUILD_CACHE} || [ ! -d "${INSTALL_PREFIX}/include/caffe2" ]; then
-
-  if should_rebuild ${TC_DIR}/third-party/caffe2 ${CAFFE2_BUILD_CACHE}; then
-  echo "Installing Caffe2"
-  if should_reconfigure .. .build_cache; then
-    echo "Reconfiguring Caffe2"
-    rm -rf * || exit 1
-
-    CMAKE_ARGS=("-DBUILD_BINARY=OFF -DCMAKE_CXX_FLAGS='-fno-var-tracking-assignments' -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DUSE_GLOG=OFF -DUSE_GFLAGS=OFF -DUSE_GLOO=OFF -DUSE_NCCL=OFF -DUSE_LMDB=OFF -DUSE_LEVELDB=OFF -DBUILD_TEST=OFF -DUSE_OPENCV=OFF -DUSE_OPENMP=OFF -DCMAKE_INSTALL_MESSAGE=NEVER")
-    CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_PYTHON=${WITH_PYTHON_C2} -DUSE_NNPACK=${WITH_NNPACK} -DPROTOBUF_PROTOC_EXECUTABLE=${PROTOC} -DUSE_CUDA=${WITH_CUDA} -DCUB_INCLUDE_DIR=${CUB_INCLUDE_DIR} -DCMAKE_C_COMPILER=${CC} -DCMAKE_CXX_COMPILER=${CXX}")
-
-    if ! test ${USE_CONTBUILD_CACHE}; then
-      CMAKE_ARGS+=("-DCUDNN_ROOT_DIR=${CUDNN_ROOT_DIR}")
-    else
-      CMAKE_ARGS+=("-DCUDA_ARCH_NAME='Maxwell'")
-    fi
-
-    if [[ -L ${CCACHE_WRAPPER_DIR}/nvcc && $($(readlink ${CCACHE_WRAPPER_DIR}/nvcc) --version | grep ccache | wc -c) -ne 0 ]]; then
-      CMAKE_ARGS+=("-DCUDA_NVCC_EXECUTABLE=${CCACHE_WRAPPER_DIR}/nvcc")
-    fi
-
-    ${CMAKE_VERSION} "${TC_DIR}/third-party/caffe2" ${CMAKE_ARGS[*]}
-
-  fi
-
-  make -j $CORES install -s || exit 1
-
-  set_cache .. .build_cache
-  set_bcache ${TC_DIR}/third-party/caffe2 ${CAFFE2_BUILD_CACHE}
-  fi
-
-  echo "Successfully installed caffe2"
-
-  fi
 }
 
 function install_dlpack() {
@@ -368,25 +277,6 @@ function install_halide() {
 
   fi
 }
-
-if ! test -z $aten || ! test -z $all; then
-    if python -c "import torch" &> /dev/null; then
-        echo 'PyTorch is installed, libATen.so will be used from there to avoid two copies'
-    else
-        install_aten
-    fi
-fi
-
-if ! test -z $caffe2 || ! test -z $all ; then
-    if [ "$WITH_CAFFE2" == "ON" ]; then
-        if [[ ! -z "$CONDA_PREFIX" && $(find $CONDA_PREFIX -name libcaffe2_gpu.so) ]]; then
-            echo "caffe2 found"
-        else
-            echo "no files found"
-            install_caffe2
-        fi
-    fi
-fi
 
 if ! test -z $dlpack || ! test -z $all; then
     install_dlpack
