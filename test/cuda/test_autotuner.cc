@@ -35,7 +35,6 @@ DEFINE_bool(
     smoke_check,
     true,
     "launches a mini autotune (true) or a full run (false)");
-DEFINE_bool(no_memory_promotion, false, "disable memory promotion");
 
 struct ATenCompilationUnitTest : public ::testing::Test {
   static constexpr uint32_t N = 32, C1 = 512, C2 = 8, C3 = 2, H = 28, W = 28;
@@ -68,12 +67,8 @@ struct ATenCompilationUnitTest : public ::testing::Test {
       tc::CudaMappingOptions baseMapping) {
     tc::aten::ATenAutotuner<tc::CudaBackend, tc::autotune::GeneticSearch>
         geneticAutotuneATen(tc);
-    tc::autotune::TuningParameterFixer fix;
-    if (FLAGS_no_memory_promotion) {
-      fix.fixUseSharedMemory(false).fixUsePrivateMemory(false);
-    }
     auto options = geneticAutotuneATen.tune(
-        name, inputs, {baseMapping}, std::numeric_limits<size_t>::max(), fix);
+        name, inputs, {baseMapping}, std::numeric_limits<size_t>::max());
     if (options.size() > 0) {
       return options[0];
     }

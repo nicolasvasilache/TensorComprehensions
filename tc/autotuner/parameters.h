@@ -147,8 +147,6 @@ class CudaDimParameters : public MultiRangeParams {
   using MultiRangeParams::collectParameters;
 };
 
-class TuningParameterFixer;
-
 class TuningConfiguration {
  private:
   void fromMappingOptions(const MappingOptionsView& options);
@@ -171,8 +169,6 @@ class TuningConfiguration {
   void addValidator(std::function<bool(const TuningConfiguration&)> v);
   bool isValid() const;
 
-  void fixParameters(const TuningParameterFixer& fixedParams);
-
   SchedulerOptionsParameters outerScheduleOptions;
   SchedulerOptionsParameters intraTileScheduleOptions;
   BoolParameter fixParametersBeforeScheduling;
@@ -191,44 +187,6 @@ class TuningConfiguration {
 
  private:
   std::vector<std::function<bool(const TuningConfiguration&)>> validators_;
-};
-
-class TuningParameterFixer {
- public:
-  TuningParameterFixer& fixOuterScheduleFusionStrategy(
-      const FusionStrategy& fs);
-  TuningParameterFixer& fixIntraTileScheduleFusionStrategy(
-      const FusionStrategy& fs);
-  TuningParameterFixer& fixFixParametersBeforeScheduling(bool val);
-  TuningParameterFixer& fixUnrollFactor(size_t val);
-  TuningParameterFixer& fixTilingParameters(std::vector<size_t> vals);
-  TuningParameterFixer& fixBlockParameters(std::vector<size_t> vals);
-  TuningParameterFixer& fixGridParameters(std::vector<size_t> vals);
-  TuningParameterFixer& fixTileImperfectlyNested(bool val);
-  TuningParameterFixer& fixUseSharedMemory(bool val);
-  TuningParameterFixer& fixUsePrivateMemory(bool val);
-  TuningParameterFixer& fixUnrollCopyShared(bool val);
-  TuningParameterFixer& fixUseReadOnlyCache(bool val);
-  TuningParameterFixer& fixMatchLibraryCalls(bool val);
-
- private:
-  llvm::Optional<FusionStrategy> outerScheduleFusionStrategy;
-  llvm::Optional<FusionStrategy> intraTileScheduleFusionStrategy;
-  llvm::Optional<bool> fixParametersBeforeScheduling;
-  llvm::Optional<size_t> unrollFactor;
-  llvm::Optional<std::vector<size_t>> tilingParameters;
-  llvm::Optional<std::vector<size_t>> blockParameters;
-  llvm::Optional<std::vector<size_t>> gridParameters;
-  llvm::Optional<bool> tileImperfectlyNested;
-  llvm::Optional<bool> useSharedMemory;
-  llvm::Optional<bool> usePrivateMemory;
-  llvm::Optional<bool> unrollCopyShared;
-  llvm::Optional<bool> useReadOnlyCache;
-  llvm::Optional<bool> matchLibraryCalls;
-  llvm::Optional<uint32_t> privateDepth;
-  llvm::Optional<uint32_t> sharedDepth;
-
-  friend class TuningConfiguration;
 };
 
 class CandidateConfiguration {

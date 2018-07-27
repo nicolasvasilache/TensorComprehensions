@@ -383,61 +383,6 @@ TuningConfiguration::TuningConfiguration()
   });
 }
 
-namespace {
-
-template <typename T, typename Param>
-void maybeFixScalar(const llvm::Optional<T>& maybeFixed, Param& param) {
-  if (maybeFixed) {
-    param.fixValue(*maybeFixed);
-  }
-}
-
-void maybeFixFusionStrategy(
-    const llvm::Optional<FusionStrategy>& maybeFixed,
-    RangeParameter& param) {
-  if (maybeFixed) {
-    param.fixValue(toInt(*maybeFixed));
-  }
-}
-
-void maybeFixVector(
-    const llvm::Optional<std::vector<size_t>>& maybeFixed,
-    MultiRangeParams& param) {
-  if (not maybeFixed) {
-    return;
-  }
-  const auto& values = *maybeFixed;
-  param.numberDims.fixValue(values.size());
-  param.dims.resize(values.size());
-  for (size_t i = 0; i < values.size(); ++i) {
-    param.dims.at(i).fixValue(values.at(i));
-  }
-}
-
-} // namespace
-
-void TuningConfiguration::fixParameters(
-    const TuningParameterFixer& fixedParams) {
-  maybeFixFusionStrategy(
-      fixedParams.outerScheduleFusionStrategy,
-      outerScheduleOptions.fusionStrategy);
-  maybeFixFusionStrategy(
-      fixedParams.intraTileScheduleFusionStrategy,
-      intraTileScheduleOptions.fusionStrategy);
-  maybeFixScalar(
-      fixedParams.fixParametersBeforeScheduling, fixParametersBeforeScheduling);
-  maybeFixScalar(fixedParams.unrollFactor, unrollFactor);
-  maybeFixVector(fixedParams.tilingParameters, tilingParams);
-  maybeFixVector(fixedParams.blockParameters, blockParams);
-  maybeFixVector(fixedParams.gridParameters, gridParams);
-  maybeFixScalar(fixedParams.tileImperfectlyNested, tileImperfectlyNested);
-  maybeFixScalar(fixedParams.useSharedMemory, useSharedMemory);
-  maybeFixScalar(fixedParams.usePrivateMemory, usePrivateMemory);
-  maybeFixScalar(fixedParams.unrollCopyShared, unrollCopyShared);
-  maybeFixScalar(fixedParams.useReadOnlyCache, useReadOnlyCache);
-  maybeFixScalar(fixedParams.matchLibraryCalls, matchLibraryCalls);
-}
-
 void MultiRangeParams::setRange(
     size_t minDims,
     size_t maxDims,
@@ -524,76 +469,6 @@ void CudaDimParameters::applyToMappingOptions(CudaDimView& options) const {
           "The number of cuda dimensions must belong to [1,3]");
   }
   options.proto = proto;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixOuterScheduleFusionStrategy(
-    const FusionStrategy& fs) {
-  outerScheduleFusionStrategy = fs;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixIntraTileScheduleFusionStrategy(
-    const FusionStrategy& fs) {
-  intraTileScheduleFusionStrategy = fs;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixFixParametersBeforeScheduling(
-    bool val) {
-  fixParametersBeforeScheduling = val;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixUnrollFactor(size_t val) {
-  unrollFactor = val;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixTilingParameters(
-    std::vector<size_t> vals) {
-  tilingParameters = vals;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixBlockParameters(
-    std::vector<size_t> vals) {
-  blockParameters = vals;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixGridParameters(
-    std::vector<size_t> vals) {
-  gridParameters = vals;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixTileImperfectlyNested(bool val) {
-  tileImperfectlyNested = val;
-  return *this;
-}
-TuningParameterFixer& TuningParameterFixer::fixUseSharedMemory(bool val) {
-  useSharedMemory = val;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixUsePrivateMemory(bool val) {
-  usePrivateMemory = val;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixUnrollCopyShared(bool val) {
-  unrollCopyShared = val;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixUseReadOnlyCache(bool val) {
-  useReadOnlyCache = val;
-  return *this;
-}
-
-TuningParameterFixer& TuningParameterFixer::fixMatchLibraryCalls(bool val) {
-  matchLibraryCalls = val;
-  return *this;
 }
 
 } // namespace autotune

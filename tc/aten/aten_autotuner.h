@@ -66,10 +66,6 @@ class ATenAutotuner : public tc::autotune::Autotuner<Backend, SearchStrategy> {
   /// are still saved at the end of tuning, possibly overwriting that
   /// previously saved protobuf file.
   ///
-  /// Lastly a TuningParameterFixer function can be specified to limit the
-  /// search space (i.e. when certain parameters are known to be good/bad
-  /// independently on a particular TC).
-  ///
   /// \return a vector MappingOptions, if it is empty then tuning did not find
   /// a single good configuration. This should be a very rare occurrence but
   /// it is possible in particular if the skipExecutionOrWarmup function is too
@@ -80,8 +76,7 @@ class ATenAutotuner : public tc::autotune::Autotuner<Backend, SearchStrategy> {
       const std::string& tcEntryPoint,
       const std::vector<at::Tensor>& inputs,
       const std::vector<MappingOptionsType>& baseMappings,
-      size_t topK = 1,
-      const tc::autotune::TuningParameterFixer& fixedParams = {});
+      size_t topK = 1);
 
  protected:
   /// The TC string is stored internally so we can tune independent TC

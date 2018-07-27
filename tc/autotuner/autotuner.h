@@ -54,7 +54,6 @@ class TuningHarness {
           inputs,
       std::unordered_map<size_t, std::vector<const DLTensor*>>& outputs,
       const MappingOptionsType& baseMapping,
-      const TuningParameterFixer& fixedParams,
       std::shared_ptr<OptionsCache<Backend>> optionsCache);
 
   /// Runs a SearchStrategy
@@ -141,10 +140,6 @@ class Autotuner {
   /// situation where short tunings are run and their results cached
   /// iteratively.
   ///
-  /// Lastly a TuningParameterFixer function can be specified to limit the
-  /// search space (i.e. when certain parameters are known to be good/bad
-  /// independently on a particular TC).
-  ///
   /// \return a vector MappingOptions that is either empty or contains the
   /// best options found. If it is empty then tuning did not find a single
   /// good configuration. Empty return vector should be a very rare occurrence
@@ -157,8 +152,7 @@ class Autotuner {
           inputs,
       std::unordered_map<size_t, std::vector<const DLTensor*>>& outputs,
       const std::vector<MappingOptionsType>& baseMapping,
-      size_t topK = 1,
-      const TuningParameterFixer& fixedParams = TuningParameterFixer());
+      size_t topK = 1);
 
  public:
   /// This is accessed by multiple threads in the tuning harness.

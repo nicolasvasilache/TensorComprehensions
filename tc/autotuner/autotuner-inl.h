@@ -41,7 +41,6 @@ TuningHarness<Backend>::TuningHarness(
     const std::unordered_map<size_t, std::vector<const DLConstTensor*>>& inputs,
     std::unordered_map<size_t, std::vector<const DLTensor*>>& outputs,
     const typename Backend::MappingOptionsType& baseMapping,
-    const TuningParameterFixer& fixedParams,
     std::shared_ptr<OptionsCache<Backend>> optionsCache)
     : stopRequested_(false),
       currentCompilationJob_(0),
@@ -423,8 +422,7 @@ Autotuner<Backend, SearchStrategy>::tune(
     const std::unordered_map<size_t, std::vector<const DLConstTensor*>>& inputs,
     std::unordered_map<size_t, std::vector<const DLTensor*>>& outputs,
     const std::vector<typename Backend::MappingOptionsType>& baseMappings,
-    size_t topK,
-    const TuningParameterFixer& fixedParams) {
+    size_t topK) {
   std::map<std::string, lang::TreeRef> tcEntryPointMap(tc::detail::parse(tc));
   TC_CHECK_EQ(tcEntryPointMap.count(tcEntryPoint), 1u)
       << "Error looking up " << tcEntryPoint;
@@ -433,7 +431,6 @@ Autotuner<Backend, SearchStrategy>::tune(
   TC_CHECK_GE(inputs.size(), 1u);
   auto modelConfiguration =
       setupTuningParameters(inputs.begin()->second, baseMappings);
-  modelConfiguration.fixParameters(fixedParams);
 
   // Create initial configs based on options + model configuration
   const std::vector<typename Backend::MappingOptionsType> options{baseMappings};
@@ -443,11 +440,10 @@ Autotuner<Backend, SearchStrategy>::tune(
       options.begin(),
       options.end(),
       std::back_inserter(configs),
-      [this, &fixedParams, &modelConfiguration](
+      [this, &modelConfiguration](
           const typename Backend::MappingOptionsType& options) {
         auto config = detail::makeTuningConfiguration<Backend>(
             options, modelConfiguration);
-        config.fixParameters(fixedParams);
         return config;
       });
 
@@ -467,7 +463,6 @@ Autotuner<Backend, SearchStrategy>::tune(
       inputs,
       outputs,
       options[0],
-      fixedParams,
       optionsCache);
 
   // Setup handlers

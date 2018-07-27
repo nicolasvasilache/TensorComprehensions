@@ -179,8 +179,7 @@ struct Benchmark : public ::testing::Test {
       CheckFunction check_fun =
           [](const std::vector<at::Tensor>&, const std::vector<at::Tensor>&) {
             return true;
-          },
-      const tc::autotune::TuningParameterFixer& fixedParams = {}) {
+          }) {
     if (!FLAGS_autotune) {
       return {};
     }
@@ -188,7 +187,7 @@ struct Benchmark : public ::testing::Test {
         geneticAutotuneATen(tc);
     auto bestOptions = [&]() {
       auto options = geneticAutotuneATen.tune(
-          kernelName, inputs, {baseMapping}, 1, fixedParams);
+          kernelName, inputs, {baseMapping}, 1);
       TC_CHECK_GE(options.size(), 1u) << "Benchmark mode: at least one "
                                       << "options expected";
       return options[0];
