@@ -173,10 +173,6 @@ class TuningConfiguration {
 
   void fixParameters(const TuningParameterFixer& fixedParams);
 
-  friend std::ostream& operator<<(
-      std::ostream& os,
-      const TuningConfiguration& conf);
-
   SchedulerOptionsParameters outerScheduleOptions;
   SchedulerOptionsParameters intraTileScheduleOptions;
   BoolParameter fixParametersBeforeScheduling;
@@ -260,12 +256,6 @@ class CandidateConfiguration {
     CandidateConfiguration tmp(candidate);
     std::swap(tmp, *this);
     return *this;
-  }
-
-  friend std::ostream& operator<<(
-      std::ostream& os,
-      const CandidateConfiguration& config) {
-    return os << config.configuration;
   }
 
   TuningConfiguration configuration;

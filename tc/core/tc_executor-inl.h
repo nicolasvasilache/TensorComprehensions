@@ -21,6 +21,7 @@
 #include "tc/core/compiler.h"
 #include "tc/core/flags.h"
 #include "tc/core/tensor.h"
+#include "tc/core/polyhedral/scop.h"
 #include "tc/lang/canonicalize.h"
 
 namespace tc {
@@ -64,6 +65,38 @@ void checkSizesAndStridesAreCompliant(
       }
     }
   }
+}
+
+// Append ordered values to the kernel name, separated by "_".
+template <typename T>
+inline std::string specializeKernelName(
+    const std::string& tcName,
+    std::vector<T> params) {
+  std::stringstream ss;
+  ss << tcName;
+  for (auto i : params) {
+    ss << "_" << i;
+  }
+  return ss.str();
+}
+
+template <typename Backend>
+inline std::unique_ptr<polyhedral::Scop> makeScop(
+    const std::string& tcName,
+    tc2halide::HalideComponents halideComponents,
+    const std::vector<const DLConstTensor*>& inputs,
+    /* TODO: in the future also pass outputs for stride and alignment info */
+    const typename Backend::MappingOptionsType& options) {
+    // A bit chicken-and-eggy, need scop from TC to have the space to build the
+  // context to specialize the scop..
+  auto scop = polyhedral::Scop::makeScop(
+      isl::with_exceptions::globalIslCtx(), halideComponents);
+  auto pvm = computeParamValueMap(halideComponents, inputs);
+  scop = polyhedral::Scop::makeSpecializedScop(*scop, pvm);
+  LOG_IF(INFO, FLAGS_debug_tc_mapper) << options;
+  LOG_IF(INFO, FLAGS_debug_tc_mapper) << "original schedule:\n"
+                                      << *(scop->scheduleRoot());
+  return scop;
 }
 } // namespace
 

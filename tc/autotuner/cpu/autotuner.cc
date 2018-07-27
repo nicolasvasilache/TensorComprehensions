@@ -51,6 +51,7 @@ TuningConfiguration makeTuningConfiguration<CpuBackend>(
     const TuningConfiguration& configuration) {
   TuningConfiguration conf = configuration;
   conf.fromCpuMappingOptions(options);
+//  LOG(ERROR) << "CONF: " << conf;
   return conf;
 }
 
@@ -60,7 +61,7 @@ bool skipExecutionOrWarmup<CpuBackend>(
     const std::vector<const DLTensor*>& outputs,
     const std::vector<const DLConstTensor*>& inputs,
     Duration bestTimeSoFar) {
-  LOG(ERROR) << "NYI: skipExecutionOrWarmup<CpuBackend>";
+  LOG(ERROR) << "skipExecutionOrWarmup<CpuBackend> never skips atm";
   return false;
 }
 
@@ -68,13 +69,13 @@ template <>
 void handleDeviceRuntimeError<CpuBackend>(
     size_t device,
     typename CpuBackend::MappingOptionsType& options) {
-  LOG(ERROR) << "NYI: handleDeviceRuntimeError<CpuBackend>";
+  LOG(ERROR) << "handleDeviceRuntimeError<CpuBackend> does nothing atm";
 }
 
 template <>
 std::vector<size_t> parseDevices<CpuBackend>(const std::string& devices) {
-  LOG(ERROR) << "NYI: handleDeviceRuntimeError<CpuBackend>";
-  return {};
+  LOG(ERROR) << "parseDevices<CpuBackend> just returns {0} atm";
+  return {0};
 }
 } // namespace detail
 } // namespace autotune

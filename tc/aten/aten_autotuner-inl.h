@@ -63,6 +63,7 @@ ATenAutotuner<Backend, Search>::tune(
   // first parse the devices
   auto devices =
       tc::autotune::detail::parseDevices<Backend>(FLAGS_tuner_devices);
+  TC_CHECK_GE(devices.size(), 1) << "Need devices to tune on";
   // clone the inputs/outputs on each device
   // TODO: this takes twice the space it should, alternatives are:
   // 1. enforce inputs and outputs live on the CPU in the first place so we

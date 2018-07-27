@@ -28,21 +28,6 @@
 #include <utility>
 
 namespace tc {
-namespace {
-// Append ordered values to the kernel name, separated by "_".
-template <typename T>
-std::string specializeKernelName(
-    const std::string& tcName,
-    std::vector<T> params) {
-  std::stringstream ss;
-  ss << tcName;
-  for (auto i : params) {
-    ss << "_" << i;
-  }
-  return ss.str();
-}
-} // namespace
-
 CudaTcExecutor::CudaTcExecutor(
     const std::vector<TensorInfo>& inputsInfo,
     const std::vector<TensorInfo>& outputsInfo,
@@ -74,17 +59,7 @@ CudaCompilationResult CudaBackend::compileWithTcMapper(
     const std::vector<const DLConstTensor*>& inputs,
     /* TODO: in the future also pass outputs for stride and alignment info */
     const CudaMappingOptions& options) {
-  // A bit chicken-and-eggy, need scop from TC to have the space to build the
-  // context to specialize the scop..
-  auto scop = polyhedral::Scop::makeScop(
-      isl::with_exceptions::globalIslCtx(), halideComponents);
-  auto pvm = computeParamValueMap(halideComponents, inputs);
-  scop = polyhedral::Scop::makeSpecializedScop(*scop, pvm);
-  LOG_IF(INFO, FLAGS_debug_tc_mapper) << options;
-  LOG_IF(INFO, FLAGS_debug_tc_mapper) << "original schedule:\n"
-                                      << *(scop->scheduleRoot());
-
-  // Now we can build stuff
+  auto scop = makeScop<CudaBackend>(tcName, halideComponents, inputs, options);
   auto mappedScop =
       polyhedral::cuda::MappedScop::makeWithOuterBlockInnerThreadStrategy(
           std::move(scop), options);

@@ -18,6 +18,7 @@
 #include "tc/core/cpu/cpu_mapping_options.h"
 #include "tc/core/cpu/cpu_mapping_options_cpp_printer.h"
 #include "tc/core/halide_utils.h"
+#include "tc/core/polyhedral/cpu/mapped_scop.h"
 #include "tc/core/tc2halide.h"
 #include "tc/core/tensor.h"
 #include "tc/lang/parser.h"
@@ -44,10 +45,21 @@ CpuCompilationResult CpuBackend::compileWithTcMapper(
     const std::vector<const DLConstTensor*>& inputs,
     /* TODO: in the future also pass outputs for stride and alignment info */
     const CpuMappingOptions& options) {
-  LOG(ERROR) << "NYI: CpuBackend::compileWithTcMapper";
-  return CpuCompilationResult{std::string("source"),
-                              std::string("specializedName"),
-                              std::vector<long>()};
+  auto scop = makeScop<CpuBackend>(tcName, halideComponents, inputs, options);
+  auto mappedScop = polyhedral::cpu::MappedScop::makeSequential(
+    std::move(scop), options);
+  LOG_IF(INFO, FLAGS_debug_tc_mapper) << "Mapped schedule:" << std::endl
+                                      << *(mappedScop->schedule());
+
+  auto parameters = mappedScop->scop().getParameterValues();
+  auto specializedName = specializeKernelName(tcName, parameters);
+  auto pJit = mappedScop->codegen(specializedName);
+  // auto fptr =
+  //     reinterpret_cast<void (*)(float*, float*, float*, int, int, int, int)>(
+  //         pJit->getSymbolAddress(specializedName));
+
+  return CpuCompilationResult{
+    std::string("source"), specializedName, parameters};
 }
 
 void CpuTcExecutor::uncheckedRun(
