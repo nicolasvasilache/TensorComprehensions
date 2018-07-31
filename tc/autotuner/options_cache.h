@@ -25,8 +25,6 @@
 
 #include <llvm/ADT/Optional.h>
 
-#include <version.h>
-
 #include "tc/core/tensor.h"
 #include "tc/core/utils/time.h"
 #include "tc/lang/canonicalize.h"

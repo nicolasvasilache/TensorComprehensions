@@ -24,10 +24,8 @@
 #include <Python.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <torch/torch.h>
 
-#include "tc/aten/aten.h"
-#include "tc/aten/aten_autotuner.h"
+#include "tc/autotuner/autotuner.h"
 #include "tc/autotuner/genetic_search.h"
 #include "tc/autotuner/options_cache.h"
 #include "tc/core/cuda/cuda_backend.h"
@@ -51,48 +49,38 @@ void initGlog() {
   }
 }
 
-inline std::vector<tc::TensorInfo> getATenTensorsAsTensorInfo(
-    const py::tuple& pyTensors) {
-  std::vector<tc::TensorInfo> tensors;
-  for (auto& inp : pyTensors) {
-    tensors.push_back(tc::aten::toTensorInfo(inp.cast<at::Tensor>()));
+template <typename DLPtr>
+static inline
+std::vector<DLPtr> extractDLTensorsFromCapsulesHelper(
+    const py::tuple& pyCapsules) {
+  std::vector<DLPtr> tensors;
+  for (auto& inp : pyCapsules) {
+    // py::capsule has an operator T* to directly static cast in the proper
+    // pointer type.
+    auto caps = inp.cast<py::capsule>();
+    tensors.push_back(
+      // DLTensor and DLConstTensor have the same memory layout..
+      reinterpret_cast<DLPtr>(
+        &(static_cast<DLManagedTensor*>(caps)->dl_tensor)));
   }
   return tensors;
 }
-
-inline std::vector<at::Tensor> getATenTensors(const py::tuple& pyTensors) {
-  std::vector<at::Tensor> atTensors;
-  for (auto& inp : pyTensors) {
-    atTensors.push_back(inp.cast<at::Tensor>());
-  }
-  return atTensors;
+std::vector<const DLTensor*> extractDLTensorsFromCapsules(
+    const py::tuple& pyCapsules) {
+  return extractDLTensorsFromCapsulesHelper<const DLTensor*>(pyCapsules);
 }
-
-template <typename VoidPtr>
-inline std::vector<VoidPtr> getATenTensorsAsRawPtrs(
-    const py::tuple& pyTensors) {
-  std::vector<VoidPtr> res;
-  for (auto& inp : pyTensors) {
-    res.push_back(static_cast<VoidPtr>(inp.cast<at::Tensor>().data_ptr()));
-  }
-  return res;
-}
-
-inline py::tuple convertToPyObjects(const std::vector<at::Tensor>& tensors) {
-  py::list outputs;
-  for (auto& tensor : tensors) {
-    outputs.append(py::cast(torch::autograd::make_variable(tensor)));
-  }
-  return py::tuple(outputs);
+std::vector<const DLConstTensor*> extractDLConstTensorsFromCapsules(
+    const py::tuple& pyCapsules) {
+  return extractDLTensorsFromCapsulesHelper<const DLConstTensor*>(pyCapsules);
 }
 
 inline py::object tupleOrTensor(const py::tuple& t) {
   if (t.size() > 1) {
     return t;
   }
-  return py::cast(t[0].cast<at::Tensor>());
+  return t[0];
 }
-} // namespace
+} // ns anon
 
 /**
  * This struct serves the purpose of memoizing the compiled TcExecutors
@@ -106,13 +94,11 @@ inline py::object tupleOrTensor(const py::tuple& t) {
  *      allocations are acceptable)
  *   3. large string hashing
  *
- * Creating a key must be cheap, we cannot afford multiple conversions on the
- * way from ATen tensors to TensorInfo.
  */
 struct CompilationCache {
   struct Key {
     Key(std::string entryPt, const py::tuple& inputs)
-        : entryPoint(entryPt), inputs(getATenTensorsAsTensorInfo(inputs)) {}
+        : entryPoint(entryPt), inputs() {}
     bool operator==(const Key& other) const {
       return entryPoint == other.entryPoint && inputs == other.inputs;
     }
@@ -146,37 +132,6 @@ struct CompilationCache {
     return compiled.count(Key(entryPoint, inputs)) > 0;
   }
 
-  /// This function infers the size of the outputs for each new compilation.
-  /// This brings overhead, therefore we memoize the output sizes on-demand.
-  /// The allocation itself is backed by ATen's caching allocator and is
-  /// assumed acceptable (this is used everywhere in PyTorch).
-  std::vector<at::Tensor> allocATenOutputTensors(
-      const std::string& entryPoint,
-      const py::tuple& inputs) {
-    Key k(entryPoint, inputs);
-    auto kvp = outputs.find(k);
-    if (kvp == outputs.end()) {
-      auto atInputs = getATenTensors(inputs);
-      // Allocation for a key we haven't seen yet, we only want the metadata
-      // to reuse for further allocations. Therefore we immediately release
-      // the storage.
-      // Then convertToPyObjects calls torch::autograd::make_variable.
-      auto atOutputs = tc::aten::prepareOutputs(tc, entryPoint, atInputs);
-      for (const auto& t : atOutputs) {
-        t.storage().release();
-      }
-      outputs.emplace(k, atOutputs);
-      kvp = outputs.find(k);
-    }
-    return kvp->second;
-  }
-
-  py::tuple allocOutputs(
-      const std::string& entryPoint,
-      const py::tuple& inputs) {
-    return convertToPyObjects(allocATenOutputTensors(entryPoint, inputs));
-  }
-
   /// This function forces recompilation and storage.
   /// This is because we do not want to own the decision of which options to
   /// build in the bindings but closer to the user level.
@@ -187,60 +142,36 @@ struct CompilationCache {
       const py::tuple& inputs,
       const tc::CudaMappingOptions& options) {
     Key k(entryPoint, inputs);
-    compiled[k] = tc::aten::compile<tc::CudaBackend>(
-        tc, entryPoint, getATenTensors(inputs), options);
+    TC_CHECK(false) << "NYI";
   }
 
   py::object run(
       const std::string& entryPoint,
       const py::tuple& inputs,
       const py::tuple& outputs) {
-    if (outputs.size() > 0) {
-      auto atOutputs = getATenTensors(outputs);
-      auto atInputs = getATenTensors(inputs);
-      tc::aten::run(*compiled.at(Key(entryPoint, inputs)), atInputs, atOutputs);
-      return tupleOrTensor(outputs);
-    } else {
-      auto atOutputs = allocATenOutputTensors(entryPoint, inputs);
-      auto atInputs = getATenTensors(inputs);
-      tc::aten::run(*compiled.at(Key(entryPoint, inputs)), atInputs, atOutputs);
-      return tupleOrTensor(convertToPyObjects(atOutputs));
-    }
+    return py::object();
   }
 
   py::object uncheckedRun(
       const std::string& entryPoint,
       const py::tuple& inputs,
       const py::tuple& outputs) {
-    if (outputs.size() > 0) {
-      compiled.at(Key(entryPoint, inputs))
-          ->uncheckedRun(
-              getATenTensorsAsRawPtrs<const void*>(inputs),
-              getATenTensorsAsRawPtrs<void*>(outputs));
-      return tupleOrTensor(outputs);
-    } else {
-      auto outputs = allocOutputs(entryPoint, inputs);
-      compiled.at(Key(entryPoint, inputs))
-          ->uncheckedRun(
-              getATenTensorsAsRawPtrs<const void*>(inputs),
-              getATenTensorsAsRawPtrs<void*>(outputs));
-      return tupleOrTensor(outputs);
-    }
+    TC_CHECK(false) << "NYI";
+    return py::object();
   }
 
   std::string tc;
-  std::unordered_map<Key, std::vector<at::Tensor>, KeyHasher> outputs;
   std::unordered_map<Key, std::unique_ptr<tc::CudaTcExecutor>, KeyHasher>
       compiled;
 };
 
-using ATenCudaGeneticTuner =
-    tc::aten::ATenAutotuner<tc::CudaBackend, tc::autotune::GeneticSearch>;
+using CudaGeneticTuner =
+  tc::autotune::Autotuner<tc::CudaBackend, tc::autotune::GeneticSearch>;
 
-class Tuner : public ATenCudaGeneticTuner {
+class Tuner : public CudaGeneticTuner {
  public:
   Tuner(const std::string& tc, const std::string& cacheFileName = "")
-      : ATenCudaGeneticTuner(tc), cacheFileName(cacheFileName) {}
+      : CudaGeneticTuner(), cacheFileName(cacheFileName) {}
 
   std::string cacheFileName;
 };
@@ -248,30 +179,18 @@ class Tuner : public ATenCudaGeneticTuner {
 struct TcExecutor {
   py::object run(const py::tuple& inputs, const py::tuple& outputs) {
     if (outputs.size() > 0) {
-      auto atOutputs = getATenTensors(outputs);
-      auto atInputs = getATenTensors(inputs);
-      tc::aten::run(*executor, atInputs, atOutputs);
+      auto dlOutputs = extractDLTensorsFromCapsules(outputs);
+      auto dlInputs = extractDLConstTensorsFromCapsules(inputs);
+      executor->run(dlInputs, dlOutputs);
       return tupleOrTensor(outputs);
-    } else {
-      auto atInputs = getATenTensors(inputs);
-      auto atOutputs = tc::aten::prepareOutputs(tc, entryPoint, atInputs);
-      tc::aten::run(*executor, atInputs, atOutputs);
-      return tupleOrTensor(convertToPyObjects(atOutputs));
     }
+    TC_CHECK(false) << "NYI: caching allocator in cupy, need to pass " <<
+      "outputs explicitly for performance reasons";
+    return py::object();
   }
-
   py::object uncheckedRun(const py::tuple& inputs, const py::tuple& outputs) {
-    if (outputs.size() > 0) {
-      auto atOutputs = getATenTensors(outputs);
-      auto atInputs = getATenTensors(inputs);
-      tc::aten::uncheckedRun(*executor, atInputs, atOutputs);
-      return tupleOrTensor(outputs);
-    } else {
-      auto atInputs = getATenTensors(inputs);
-      auto atOutputs = tc::aten::prepareOutputs(tc, entryPoint, atInputs);
-      tc::aten::uncheckedRun(*executor, atInputs, atOutputs);
-      return tupleOrTensor(convertToPyObjects(atOutputs));
-    }
+    TC_CHECK(false) << "NYI";
+    return py::object();
   }
   std::string tc;
   std::string entryPoint;
@@ -405,15 +324,8 @@ class MappingOptionsCache {
       const size_t num_candidates) {
     tc::autotune::OptionsCache<tc::CudaBackend> cache;
     cache.loadCacheFromFile(fileName_);
-    // This could be made more efficient but loading is premature optimization
-    auto inputsDLTensors = tc::aten::makeDLConstTensors(getATenTensors(inputs));
-    return cache.getTopKOptions(
-        lang::canonicalTc(tc::detail::parse(tc).at(entryPoint)),
-        getATenTensorsAsTensorInfo(inputs),
-        tc::inferOutputTensorInfo(
-            tc, entryPoint, extractRawPtrs(inputsDLTensors)),
-        tc::CudaBackend::backendString(),
-        num_candidates);
+    TC_CHECK(false) << "NYI";
+    return {};
   }
 
  private:
@@ -422,6 +334,10 @@ class MappingOptionsCache {
 
 PYBIND11_MODULE(tclib, m) {
   m.doc() = "Python bindings for Tensor Comprehensions";
+
+  //
+  m.def("cupy", []() { return true; });
+  m.def("pytorch", []() { return false; });
 
   // Simple functions to set up debugging
   m.def(
@@ -480,14 +396,16 @@ PYBIND11_MODULE(tclib, m) {
           &TcExecutor::uncheckedRun,
           py::arg("inputs"),
           py::arg("outputs") = py::tuple());
+
   m.def(
       "compile",
       [](const std::string& tc,
          const std::string& entryPoint,
          const py::tuple& inputs,
          const tc::CudaMappingOptions& options) {
-        auto execUPtr = tc::aten::compile<tc::CudaBackend>(
-            tc, entryPoint, getATenTensors(inputs), options);
+        auto uptrs = extractDLConstTensorsFromCapsules(inputs);
+        auto execUPtr = tc::compile<tc::CudaBackend>(
+          tc, entryPoint, uptrs, options);
         return TcExecutor{tc, entryPoint, std::move(execUPtr)};
       });
 
@@ -569,20 +487,8 @@ PYBIND11_MODULE(tclib, m) {
              const TunerConfig& config) {
             config.enter();
             ScopeGuard sg([&config]() { config.exit(); });
-            std::vector<at::Tensor> atInputs = getATenTensors(inputs);
-            auto bestOptions =
-                instance.tune(entryPoint, atInputs, {baseMapping});
-            if (bestOptions.size() > 0u) {
-              if (not instance.cacheFileName.empty()) {
-                tc::autotune::appendTopKToCacheFile(
-                    *instance.optionsCache, instance.cacheFileName, 1);
-              }
-              return bestOptions[0];
-            } else {
-              std::cout << "Autotuner could not find options, returning base"
-                        << std::endl;
-              return baseMapping;
-            }
+            TC_CHECK(false) << "NYI";
+            return baseMapping;
           });
 
   py::class_<MappingOptionsCache>(m, "MappingOptionsCache", R"DOC(
@@ -614,7 +520,6 @@ PYBIND11_MODULE(tclib, m) {
   py::class_<CompilationCache>(m, "CompilationCache")
       .def(py::init<std::string>())
       .def("is_compiled", &CompilationCache::isCompiled)
-      .def("alloc_outputs", &CompilationCache::allocOutputs)
       .def("compile", &CompilationCache::compile)
       .def(
           "run",

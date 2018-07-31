@@ -19,7 +19,29 @@ import tempfile
 import torch
 import torch.cuda
 
+from typing import Optional, Union
 import tensor_comprehensions as tc
+import numpy as np
+
+if tc.cupy():
+    import cupy as cp
+
+tc.logtostderr(True)
+tc.debug_tc_mapper(True)
+
+def make_tensor(*sizes: int,
+                device: Optional[str] = 'cuda',
+                dtype: Optional[np.dtype] = np.float32) -> Union[torch.Tensor,
+                                                                 cp.ndarray,
+                                                                 np.ndarray]:
+    if tc.pytorch():
+        dtype = cp.float32 if dtype == np.float32 else None
+        return torch.randn(*sizes, device=device, dtype=dtype)
+    if tc.cupy() and device == 'cuda':
+        dtype = cp.float32 if dtype == np.float32 else None
+        return cp.random.uniform(low=-1., high=1., size=sizes).astype(dtype).toDlpack()
+    assert device != 'cuda', 'Unsupported numpy cuda tensor'
+    return np.random.uniform(low=-1., high=1., size=sizes).astype(dtype).toDlpack()
 
 tc.SILENT = True
 tuner_config = tc.TunerConfig().threads(5).generations(3).pop_size(5)
@@ -62,15 +84,22 @@ class TestTC(unittest.TestCase):
     # Simple TC example with explicit 'naive' compilation with nvrtc (default)
     #
     def test_tc(self):
-        A, B = torch.randn(100, device='cuda'), torch.randn(100, device='cuda')
+        A, B = make_tensor(100, device='cuda'), make_tensor(100, device='cuda')
         add = tc.compile(
             "def add(float(N) A, float(N) B) -> (C) { C(i) = A(i) + B(i) }",
             "add",
             'naive',
             A, B,
         )
-        C = add(A, B)
-        tc.assert_almost_equal(C, torch.add(A, B), A, B)
+        C = None
+        if tc.pytorch():
+            C = add(A, B)
+            tc.assert_almost_equal(C, torch.add(A, B), A, B)
+        elif tc.cupy():
+            # Must parameters explicitly since no caching allocator
+            C = add(A, B, outputs=(make_tensor(100, device='cuda'), ))
+            a, b, c = cp.fromDlpack(A), cp.fromDlpack(B), cp.fromDlpack(C)
+            tc.assert_almost_equal(c, a + b, a, b, lib = cp)
 
     #
     # Simple TC example with explicit 'naive' compilation with llvm

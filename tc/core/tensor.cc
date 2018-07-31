@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <version.h>
 
 #include <cstdint>
 #include <fstream>

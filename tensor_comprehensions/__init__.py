@@ -40,15 +40,18 @@ from tensor_comprehensions.tclib import TcExecutor
 from tensor_comprehensions.tclib import Tuner
 from tensor_comprehensions.tclib import TunerConfig
 
+from tensor_comprehensions.tclib import cupy, pytorch
+
 import tensor_comprehensions.tclib as tclib
 
 SILENT = False
 
-def assert_almost_equal(actual : torch.Tensor,
-                        expected : torch.Tensor,
-                        *inputs : torch.Tensor,
+def assert_almost_equal(actual,
+                        expected,
+                        *inputs,
                         operations: Optional[int] = 1,
-                        precision: Optional[float] = 1e-7):
+                        precision: Optional[float] = 1e-7,
+                        lib = None):
     r"""Asserts numerical precision requirements.
 
         :param actual: the PyTorch Tensor to check.
@@ -62,8 +65,12 @@ def assert_almost_equal(actual : torch.Tensor,
     diff = actual - expected
     max_value = 0.0
     for inp in inputs:
-        max_value = max(float(inp.abs().max()), max_value)
-    max_diff = float(diff.abs().max())
+        max_value = (
+            max(float(inp.abs().max()), max_value) if getattr(inp, "abs", None) is not None else
+            max(float(lib.absolute(inp).max()), max_value))
+    max_diff = (
+        float(diff.abs().max()) if getattr(inp, "abs", None) is not None else
+        float(lib.absolute(diff).max()))
     assert max_diff <= operations * precision * max_value, (
         ("error at relative precision: {}, #operations: {}, " +
          "max_value: {}, max_diff: {}").format(
@@ -124,7 +131,7 @@ def compile(
         tc: str,
         entry_point: str,
         mapping_options: Union[str, MappingOptions],
-        *inputs: torch.Tensor) -> Executor:
+        *inputs: Union[torch.Tensor, object]) -> Executor:
     r"""Returns a compiled, callable, low-overhead :class:`Executor`.
 
         An example of usage is provided in :class:`Executor`.
@@ -613,6 +620,8 @@ __all__ = [
     'llvm_flags',
     'nvcc_flags',
     # Functions exposed by the tclib
+    'cupy',
+    'pytorch',
     'compile',
     'autotune',
     'autotune_and_compile',

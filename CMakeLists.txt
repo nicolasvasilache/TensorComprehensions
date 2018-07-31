@@ -157,10 +157,6 @@ if(WITH_CUDA)
     PATH_SUFFIXES lib lib64 targets/x86_64-linux/lib targets/x86_64-linux/lib/stubs)
 
   set(CUDA_CUDA_LIBRARY ${CUDA_CUDA_LIBRARIES})
-
-  # Needed to build Caffe2 and some of our tests
-  INCLUDE(cmake/FindCuDNN.cmake)
-  include_directories(${CUDNN_INCLUDE_DIR})
 else()
   message(STATUS "Building TC without CUDA support")
 endif()
@@ -195,30 +191,32 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 execute_process(COMMAND ${CLANG_PREFIX}/bin/llvm-config --libdir  OUTPUT_VARIABLE LLVM_LIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
 link_directories(${LLVM_LIBDIR})
 
-################################################################################
-# ATen must come from a conda installation, building from source has become
-# unreasonable
-################################################################################
-# first find python path
-execute_process(COMMAND which python OUTPUT_VARIABLE __python OUTPUT_STRIP_TRAILING_WHITESPACE)
-message(STATUS "PYTHON output: \n${__python}")
+if (WITH_PYTORCH)
+  ################################################################################
+  # ATen must come from a conda installation, building from source has become
+  # unreasonable
+  ################################################################################
+  # first find python path
+  execute_process(COMMAND which python OUTPUT_VARIABLE __python OUTPUT_STRIP_TRAILING_WHITESPACE)
+  message(STATUS "PYTHON output: \n${__python}")
 
-# run the import torch command, if torch is installed it returns 0 otherwise error
-execute_process(COMMAND "${__python}" "-c" "import torch;" RESULT_VARIABLE __torch_install OUTPUT_STRIP_TRAILING_WHITESPACE)
-message(STATUS "IMPORTING TORCH: \n${__torch_install}")
+  # run the import torch command, if torch is installed it returns 0 otherwise error
+  execute_process(COMMAND "${__python}" "-c" "import torch;" RESULT_VARIABLE __torch_install OUTPUT_STRIP_TRAILING_WHITESPACE)
+  message(STATUS "IMPORTING TORCH: \n${__torch_install}")
 
-# also get the site-packages path where conda installs pytorch
-execute_process(COMMAND "python" "-c"
-    "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
-    OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
-message(STATUS "PYTHON site packages: \n${PYTHON_SITE_PACKAGES}")
+  # also get the site-packages path where conda installs pytorch
+  execute_process(COMMAND "python" "-c"
+      "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
+      OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
+  message(STATUS "PYTHON site packages: \n${PYTHON_SITE_PACKAGES}")
 
-message(STATUS "TORCH INSTALLED, linking to ATen from PyTorch")
-set(ATEN_INCLUDE_DIR "${PYTHON_SITE_PACKAGES}/torch/lib/include")
-include_directories(AFTER ${ATEN_INCLUDE_DIR})
-find_library(ATEN_LIBRARIES NAMES libATen.so PATHS ${PYTHON_SITE_PACKAGES}/torch/lib NO_DEFAULT_PATH)
-link_directories("${PYTHON_SITE_PACKAGES}/../../")
-message(STATUS "Found ATen.so file: ${ATEN_LIBRARIES}")
+  message(STATUS "TORCH INSTALLED, linking to ATen from PyTorch")
+  set(ATEN_INCLUDE_DIR "${PYTHON_SITE_PACKAGES}/torch/lib/include")
+  include_directories(AFTER ${ATEN_INCLUDE_DIR})
+  find_library(ATEN_LIBRARIES NAMES libATen.so PATHS ${PYTHON_SITE_PACKAGES}/torch/lib NO_DEFAULT_PATH)
+  link_directories("${PYTHON_SITE_PACKAGES}/../../")
+  message(STATUS "Found ATen.so file: ${ATEN_LIBRARIES}")
+endif()
 
 ################################################################################
 # isl
@@ -304,13 +302,14 @@ if (WITH_CUDA)
   add_subdirectory(tensor_comprehensions/pybinds)
 endif()
 
+if (WITH_PYTORCH)
 enable_testing()
 add_subdirectory(test)
-
-if (WITH_CUDA)
-  add_subdirectory(tc/examples)
-else()
-  message(STATUS "Not building examples, CUDA not available")
+  if (WITH_CUDA)
+    add_subdirectory(tc/examples)
+  else()
+    message(STATUS "Not building examples, CUDA not available")
+  endif()
 endif()
 
 if (WITH_CAFFE2 AND WITH_CUDA)

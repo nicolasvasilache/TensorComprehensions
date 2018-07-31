@@ -34,7 +34,7 @@
 #include "tc/core/utils/time.h"
 #include "tc/lang/canonicalize.h"
 
-#include "version.h"
+#include "tc/version/version.h"
 
 namespace tc {
 namespace autotune {

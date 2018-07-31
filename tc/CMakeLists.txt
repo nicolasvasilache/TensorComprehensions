@@ -5,4 +5,7 @@ add_subdirectory(proto)
 add_subdirectory(version)
 add_subdirectory(core)
 add_subdirectory(autotuner)
+
+if (WITH_PYTORCH)
 add_subdirectory(aten)
+endif()

@@ -10,14 +10,27 @@ include_directories(${PYTHON_INCLUDE_DIRS})
 
 add_library(tclib MODULE tclib.cc)
 target_include_directories(tclib PUBLIC ${PROJECT_SOURCE_DIR}/tc)
-target_link_libraries(
-  tclib
+if (WITH_PYTORCH)
+  target_link_libraries(
+    tclib_aten.cc
 
-  tc_autotuner
-  tc_aten
+    tc_autotuner
+    tc_aten
 
-  ${PYTHON_LIBRARIES}
-)
+    ${PYTHON_LIBRARIES}
+  )
+endif()
+
+if (WITH_CUPY)
+  target_link_libraries(
+    tclib
+
+    tc_autotuner
+    tc_core
+
+    ${PYTHON_LIBRARIES}
+  )
+endif()
 
 set_target_properties(tclib PROPERTIES PREFIX "")
 set_target_properties(tclib PROPERTIES SUFFIX ".so")

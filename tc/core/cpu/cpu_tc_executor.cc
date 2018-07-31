@@ -22,7 +22,6 @@
 #include "tc/core/tensor.h"
 #include "tc/lang/parser.h"
 #include "tc/lang/sema.h"
-#include "version.h"
 
 namespace tc {
 CpuTcExecutor::CpuTcExecutor(

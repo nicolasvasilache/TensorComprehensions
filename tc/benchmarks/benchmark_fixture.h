@@ -23,7 +23,6 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include <version.h>
 #include "tc/aten/aten.h"
 #include "tc/aten/aten_autotuner.h"
 #include "tc/aten/aten_compiler.h"
